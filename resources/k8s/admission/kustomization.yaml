@@ -1,10 +1,2 @@
 resources:
   - admission.yaml
-
-patches:
-  - path: ca.json
-    target:
-      group: admissionregistration.k8s.io
-      version: v1
-      kind: ValidatingWebhookConfiguration
-      name: policy-controller.atomist.com

@@ -3,17 +3,7 @@
 /target/
 /.nrepl-port
 /password.txt
-/ca.crt
-/ca.key
-/server.conf
-/server.crt
-/server.csr
-/server.key
-/server.pkcs12
 /creds.edn
 /.creds.edn
 /.DS_Store
 /docs/*.dtmp
-/admission.key
-/admission.p12
-/all.crt
