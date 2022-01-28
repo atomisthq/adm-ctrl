@@ -2,12 +2,10 @@
 
 ### Prerequisites
 
-1.  [openssl v3][openssl] (tested with `3.0.1`)
-2.  [kustomize][kustomize] (tested with `v4.4.1`)
-3.  [kubectl][kubectl] (tested with `v1.21.1`)
-4.  kubectl must be authenticated and the current context should be set to the cluster that you will be updating
+1.  [kustomize][kustomize] (tested with `v4.4.1`)
+2.  [kubectl][kubectl] (tested with `v1.21.1`)
+3.  kubectl must be authenticated and the current context should be set to the cluster that you will be updating
 
-[openssl]: https://www.openssl.org/docs/man3.0/man7/migration_guide.html
 [kustomize]: https://kubectl.docs.kubernetes.io/installation/kustomize/
 [kubectl]: https://kubectl.docs.kubernetes.io/installation/kubectl/
 
