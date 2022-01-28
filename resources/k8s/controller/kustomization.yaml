@@ -1,10 +1,4 @@
 namespace: atomist
-secretGenerator:
-- envs:
-  - keystore.env
-  files:
-  - server.pkcs12
-  name: keystore
 resources:
 - deployment.yaml
 - service.yaml

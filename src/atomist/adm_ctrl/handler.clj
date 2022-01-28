@@ -14,11 +14,11 @@
 (defroutes app
   (GET "/health" _ (constantly {:status 200 :body "ok"}))
   (->
-   (POST "/" _ (fn [req] (try 
+   (POST "/" _ (fn [req] (try
                            {:status 200 :body (handle-admission-control-request req)}
                            (catch Throwable t
                              {:status 500 :body ""}))))
-   (wrap-json-body {:keywords? true :bigdecimals? true})  
+   (wrap-json-body {:keywords? true :bigdecimals? true})
    (wrap-json-response))
   (route/not-found "<h1>not found</h1>"))
 

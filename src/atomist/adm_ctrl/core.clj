@@ -84,7 +84,7 @@
               response
               {:uid uid})})
 
-(def create-review (comp #(infof "review: %s" %1) admission-review))
+(def create-review (comp (fn [review] (infof "review: %s" review) review) admission-review))
 
 (defn handle-admission-control-request
   ""
