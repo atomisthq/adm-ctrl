@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: policy-controller-cert-create
+  namespace: atomist
+  annotations:
+    app.kubernetes.io/name: atomist
+spec:
+  template:
+    metadata:
+      name: policy-controller-cert-create
+      labels:
+        app.kubernetes.io/name: atomist
+    spec:
+      containers:
+        - name: create
+          image: k8s.gcr.io/ingress-nginx/kube-webhook-certgen:v1.1.1@sha256:64d8c73dca984af206adf9d6d7e46aa550362b1d7a01f3a0a91b20cc67868660
+          imagePullPolicy: IfNotPresent
+          args:
+            - create
+            - --host=policy-controller,policy-controller.$(POD_NAMESPACE).svc
+            - --namespace=$(POD_NAMESPACE)
+            - --secret-name=policy-controller-admission-cert
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          securityContext:
+            allowPrivilegeEscalation: false
+      restartPolicy: OnFailure
+      serviceAccountName: policy-controller-admission
+      nodeSelector:
+        kubernetes.io/os: linux
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 2000
+

@@ -37,7 +37,7 @@
 (defn -main
   [& {:keys [keystore key-password join?]}]
   (try
-    (let [key-password (or key-password (System/getenv "KEYSTORE_PASSWORD"))
+    (let [key-password (or key-password "atomist")
           keystore (->keystore (io/file (or keystore "/jks/server.pkcs12")) key-password)]
       (run-jetty app {:ssl-port 8443
                       :ssl? true
@@ -49,18 +49,23 @@
       (timbre/errorf t "failed to start %s - %s" 
                      keystore (->> key-password (map (constantly "x")) (apply str))))))
 
+;; k get secret policy-controller-admission-cert -n atomist -o json | jq -r .data.key | base64 -d > admission.key
+;; k get secret policy-controller-admission-cert -n atomist -o json | jq -r .data.cert | base64 -d > admission.crt
+;; k get secret policy-controller-admission-cert -n atomist -o json | jq -r .data.ca | base64 -d > ca.crt
+;; cat admission.crt ca.crt >> all.crt
+;; openssl pkcs12 -export -in all.crt -inkey admission.key -out admission.p12 -password pass:atomist
 (comment
-  (def keystore-bytes (with-open [in (-> (io/file "server.pkcs12")
+  (def keystore-bytes (with-open [in (-> (io/file "admission.p12")
                                          (io/input-stream))
                                   out (ByteArrayOutputStream.)]
                         (io/copy in out)
                         (.toByteArray out)))
   (def keystore-encoded (String. (.encode (Base64/getEncoder) keystore-bytes)))
 
-  (def ks (->keystore (io/file "server.pkcs12") "changeme"))
+  (def ks (->keystore (io/file "admission.p12") "atomist"))
   (enumeration-seq (.aliases ks))
   (.getCertificate ks "1")
   
-  (def server (-main :key-password "changeme" :keystore "server.pkcs12" :join? false))
+  (def server (-main :key-password "atomist" :keystore "admission.p12" :join? false))
   (.stop server))
 

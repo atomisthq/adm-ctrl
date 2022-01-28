@@ -37,20 +37,21 @@ url=<replace this>
 
 The `apiKey` and `url` should be filled in with your workspace's values.  Find these in the [atomist app](https://dso.atomist.com/r/auth/integrations) and replace them in the file.
 
-### 3. Initialize SSL certs and keystore
+### 3. Create ssl certs for your Admission Controller
 
-The kubernetes apiserver can only use HTTPS to send admission control requests.  This is true even when the admission webhook is running in the same cluster.  We can use a self-signed ca certificate, but we'll need to make the server certificate and private key available to the admission controller.  We'll also need to configure the apiserver to trust the self-signed CA certificate.   Since the keystore will need a password, generate a random password in a `password.txt` in the root of the project.
+The communication between the api-server and the admission controller will be over HTTPS.  This will be configured by running 3 kubernetes jobs in the cluster.
 
-```bash
-echo "changeme" > password.txt
+1.  policy-controller-cert-create job - this job will create SSL certs and store them in a secret named `policy-controller-admission-cert` in the atomist namespace
+2.  policy-controller-cert-path job - this will patch the admission controller webhook with the ca cert (so that the api-server will trust the new policy-controller)
+3.  keystore-create job - this will read the SSL certs created by the policy-controller-cert-create job and create a keystore for the policy-controller HTTP server.  The keystore is also stored in a secret named `keystore` in the atomist namespace.
+
+You can do steps 1 and 3 now.
+
 ```
-This password will be used to set up the keystore, and also set as a kubernetes secret so the admission controller can use the keystore at runtime.
-
-Update [lines 23 to 27](https://github.com/atomisthq/adm-ctrl/blob/main/cert.sh#L23-L27) in the `cert.sh` file at the root of this project.  Running this script
-will generate the needed certificates, and keystore.
-
-```bash
-$ ./cert.sh
+# creates roles and service account for running jobs
+kustomize build resources/k8s/certs | kubectl apply -f -
+kubectl apply -f resources/k8s/jobs/create.yaml
+kubectl apply -f resources/k8s/jobs/keystore_secret.yaml
 ```
 
 ### 4. Update Kubernetes cluster
@@ -59,11 +60,9 @@ This procedure will create a service account, a cluster role binding, two secret
 
 ![controller diagram](./docs/controller.png)
 
-Create an overlay for customisations.
+Use the same overlay that you created above (`resources/k8s/overlays/${CLUSTER_NAME}`).  Copy in a template kustomization.yaml file.
 
 ```
-CLUSTER_NAME=replacethis
-mkdir -p resources/k8s/overlays/${CLUSTER_NAME}
 cp resources/templates/default_controller.yaml resources/k8s/overlays/${CLUSTER_NAME}/kustomization.yaml
 ```
 
@@ -73,6 +72,10 @@ In the initial copy of the file, the value will be `"default"`, but it should be
 ```yaml
 resources:
   - ../../controller
+secretGenerator:
+- envs:
+  - endpoint.env
+  name: endpoint
 patchesJson6902:
 - target:
     group: apps
@@ -95,6 +98,8 @@ At this point, the admission controller will be running but the cluster will not
 
 ```bash
 kustomize build resources/k8s/admission | kubectl apply -f -
+# finally, patch the admission webhook with the ca certificate from earlier
+kubectl apply -f resources/k8s/jobs/patch.yaml
 ```
 
 [dynamic-admission-control]: https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/
