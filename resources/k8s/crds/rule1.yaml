@@ -1,0 +1,8 @@
+apiVersion: policy-controller.atomist.com/v1
+kind: Rule
+metadata:
+  name: rule1
+  namespace: production
+spec:
+  query: "[:select :in :where]"
+  message: "rule violation"

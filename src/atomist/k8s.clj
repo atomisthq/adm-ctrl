@@ -7,7 +7,9 @@
             [clj-http.client :as client]
             [taoensso.timbre :as timbre
              :refer [info  warn infof]]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [clojure.core.async :refer [go <! >!] :as async]
+            )
   (:import [java.util Base64]))
 
 (defn user-type 
@@ -15,6 +17,7 @@
   (cond 
     (:exec user) :exec
     (:auth-provider user) :auth-provider
+    (:client-key-data user) :client-key-data
     :else :default))
 
 (defmulti user->token user-type)
@@ -22,17 +25,40 @@
 ;; get a token by executing a command
 (defmethod user->token :exec
   [{{:keys [command args env]} :exec}]
-  (let [args (concat [command] args [:env (->> env
-                                               (map (fn [{:keys [name value]}]
-                                                      [name value]))
-                                               (into {})
-                                               ((fn [m] (assoc m "PATH" (System/getenv "PATH")))))])
-        {:keys [out] :as p} (apply sh/sh args)]
-    (str/trim out)))
+  (fn [m]
+    (let [token (let [args (concat [command] args [:env (->> env
+                                                             (map (fn [{:keys [name value]}]
+                                                                    [name value]))
+                                                             (into {})
+                                                             ((fn [m] (assoc m "PATH" (System/getenv "PATH")))))])
+                      {:keys [out] :as p} (apply sh/sh args)]
+                  (str/trim out))]
+      (-> m
+          (assoc-in [:headers :authorization]
+                    (format "Bearer %s" token))
+          (assoc :token token)))))
 
 (defmethod user->token :auth-provider
   [{{:keys [config name]} :auth-provider}]
-  (:access-token config))
+  (fn [m]
+    (-> m
+        (assoc-in [:headers :authorization] (format "Bearer %s" (:access-token config)))
+        (assoc :token (:access-token config)))))
+
+(defmethod user->token :client-key-data [user]
+  (fn [m]
+    (let [f "dd.jks"]
+      (spit "dd.crt" (str
+                      (String. (.decode (Base64/getDecoder) (:client-certificate-data user)))
+                      #_(String. (.decode (Base64/getDecoder) (-> m :cluster :certificate-authority-data)))
+                      ))
+      (spit "ca.crt" (String. (.decode (Base64/getDecoder) (-> m :cluster :certificate-authority-data))))
+
+      (spit "dd.key" (String. (.decode (Base64/getDecoder) (:client-key-data user))))
+      (println (sh/sh "openssl" "pkcs12" "-export" "-inkey" "dd.key" "-in" "dd.crt" "-out" f "-password" "pass:atomist"))
+      (-> m
+          (assoc :keystore f)
+          (assoc :keystore-pass "atomist")))))
 
 (defmethod user->token :default 
   [user] 
@@ -60,22 +86,22 @@
 (defn local-k8s-client [{{:keys [server certificate-authority-data]} :cluster
                          user :user}]
   (let [ca-file (io/file "/tmp/ca-docker.crt")
-        c {:token (user->token user)
-           :ca-cert (.getPath ca-file)
+        c {:ca-cert (.getPath ca-file)
            :insecure? true}]
     #_(spit ca-file (String. (.decode (Base64/getDecoder) certificate-authority-data)))
-    (k8s/client server c)))
+    (k8s/client server ((user->token user) c))))
 
 (defn local-http-client [{{:keys [server certificate-authority-data]} :cluster
                           user :user
                           :as config}]
   (let [ca-file (io/file "/tmp/ca-docker.crt")]
-    #_ (spit ca-file (String. (.decode (Base64/getDecoder) certificate-authority-data)))
-    (merge config {:token (user->token user)
-                   :server server
-                   :type :pure-http
-                   :ca-cert (.getPath ca-file)
-                   :insecure? true})))
+    #_(spit ca-file (String. (.decode (Base64/getDecoder) certificate-authority-data)))
+    ((user->token user)
+     (merge config {:server server
+                    :type :pure-http
+                    :ca-cert (.getPath ca-file)
+                    :insecure? true}))))
+
 
 ;; for local testing using kubernetes-api.core
 (def build-kubectl-client (comp local-k8s-client local-kubectl-config))
@@ -134,9 +160,51 @@
                      :action :get
                      :request {:name n}})))
 
+(defn process-watcher-stream [in]
+  (let [lines (-> in (io/reader) line-seq) ]
+    (loop [events lines]
+      (if (first events)
+        (do
+          (println "line:  " (first events))
+          (recur (rest events)))
+        (.close in)))))
+
 (comment
+
   (def c (build-http-kubectl-client))
   (pprint c)
-  (get-pod c "api-production" "timburr-5fd9c499f6-9rxd5")
+  (sh/sh "curl"
+         "-k"
+         "--cert" "dd.crt"
+         "--key" "dd.key"
+         "https://kubernetes.docker.internal:6443/api/v1/namespaces")
+  ;; k get secret policy-controller-token-5g542 -n atomist -o json | jq -r .data.token | base64 -d > token.txt
+  (def token (slurp "token.txt"))
+  ;; TODO 
+  ;; curl -k -H "Authorization: Bearer $(< token.txt)" \
+  ;;      https://kubernetes.docker.internal:6443/apis/policy-controller.atomist.com/v1/namespaces/production/rules?watch=1
+  ;; test with
+  ;; k apply -f resources/k8s/crds/rule1.yaml
+  ;; k delete rule rule1 -n production
+  ;;
+
+  ;; watch individual namespaces on their own - namespaces/*/ does not work
+  (def all-customresource-definitions "https://kubernetes.docker.internal:6443/apis/apiextensions.k8s.io/v1/customresourcedefinitions")
+  (def all-rules-url "https://kubernetes.docker.internal:6443/apis/policy-controller.atomist.com/v1/namespaces/production/rules")
+  ;; the * does seem to work for listing
+  (def listing-rules "https://kubernetes.docker.internal:6443/apis/policy-controller.atomist.com/v1/namespaces/*/rules")
+  ;; watch crds come and go in one namespace
+  (let [response (client/get all-rules-url
+                             {:insecure? true
+                              :as :stream
+                              :accept "*/*"
+                              :query-params {:watch 1}
+                              :headers {:authorization (format "Bearer %s" token)}})]
+    (def in (:body response))
+    (process-watcher-stream (:body response)))
+
+;; 
   (local-kubectl-config)
-  )
+  (get-pod c "api-production" "timburr-5fd9c499f6-9rxd5")
+  (local-kubectl-config))
+
