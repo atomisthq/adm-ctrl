@@ -44,7 +44,7 @@
       ;; TODO support ephemeral containers
       (doseq [{:keys [image]} spec-containers
               :let [container-id (->> container-statuses
-                                      (some #(= image (image %)))
+                                      (some #(= image (:image %)))
                                       :containerID)]]
         (infof "log image %s with containerID %s" image container-id)
         (atomist-call {:image {:url image
