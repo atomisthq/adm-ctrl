@@ -95,12 +95,13 @@
 (def create-review (comp (fn [review] (infof "review: %s" review) review) admission-review))
 
 (def namespaces-to-enforce #{"production"})
+(def admission-query '[:from :in :where])
 
 (defn atomist-admission-control 
   "channel should return true if image should be admitted"
   [image]
   (async/go
-    (infof "check %s in %s using query %s" image workspace-id (apply str (take 40 (slurp (io/resource "admission_query.edn")))))
+    (infof "check %s in %s using query %s" image workspace-id (apply str (take 40 (str admission-query))))
     true))
 
 (defn decision
