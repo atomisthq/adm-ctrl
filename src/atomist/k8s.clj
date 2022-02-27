@@ -8,8 +8,7 @@
             [taoensso.timbre :as timbre
              :refer [info  warn infof]]
             [clojure.string :as str]
-            [clojure.core.async :refer [go <! >!] :as async]
-            )
+            [clojure.core.async :refer [go <! >!] :as async])
   (:import [java.util Base64]))
 
 (defn user-type 
@@ -20,6 +19,7 @@
     (:client-key-data user) :client-key-data
     :else :default))
 
+;; get a token from a local kube context
 (defmulti user->token user-type)
 
 ;; get a token by executing a command
@@ -200,10 +200,9 @@
                               :accept "*/*"
                               :query-params {:watch 1}
                               :headers {:authorization (format "Bearer %s" token)}})]
-    (def in (:body response))
     (process-watcher-stream (:body response)))
 
-;; 
+  ;; test cluster get-pod
   (local-kubectl-config)
   (get-pod c "api-production" "timburr-5fd9c499f6-9rxd5")
   (local-kubectl-config))
