@@ -4,6 +4,7 @@
             [atomist.k8s :as k8s]
             [clj-http.client :as client]
             [atomist.logging]
+            [clojure.java.io :as io]
             [taoensso.timbre :as timbre
              :refer [info  warn infof]]
             [clojure.string :as str]))
@@ -11,6 +12,7 @@
 (def url (System/getenv "ATOMIST_URL"))
 (def api-key (System/getenv "ATOMIST_APIKEY"))
 (def cluster-name (System/getenv "CLUSTER_NAME"))
+(def workspace-id (System/getenv "ATOMIST_WORKSPACE"))
 
 (defn atomist-call [req]
   (let [response (client/post url {:headers {"Authorization" (format "Bearer %s" api-key)}
@@ -92,30 +94,50 @@
 
 (def create-review (comp (fn [review] (infof "review: %s" review) review) admission-review))
 
-;; TODO - Objects in our production namespaces must be marked as being ready or they'll be rejected
-(defn decision 
-  ""
-  [_]
-  ;; only passing in the resource that will be changed
-  {:allowed true})
+(def namespaces-to-enforce #{"production"})
+
+(defn atomist-admission-control 
+  "channel should return true if image should be admitted"
+  [image]
+  (async/go
+    (infof "check %s in %s using query %s" image workspace-id (apply str (take 40 (slurp (io/resource "admission_query.edn")))))
+    true))
+
+(defn decision
+  "check atomist admission control for some namespaces"
+  [{{o-ns :namespace} :metadata
+    {:keys [containers]} :spec
+    :as object}]
+  (async/go
+    (if (namespaces-to-enforce o-ns)
+      (do
+        ;; TODO support initContainers as well
+        (infof "check controls on %s" (->> containers (map :image) (str/join ",")))
+        {:allowed (async/<! (->> (for [{:keys [image]} containers]
+                                   (atomist-admission-control image))
+                                 (async/merge)
+                                 (async/reduce (fn [d v] (and d v)) true)))})
+      {:allowed true})))
 
 (defn handle-admission-control-request
   ""
   [{:keys [body] :as req}]
   ;; request object could be nil if something is being deleted
-  (let [{{:keys [kind] {o-ns :namespace o-n :name} :metadata :as object} :object 
+  (let [{{:keys [kind] {o-ns :namespace o-n :name} :metadata :as object} :object
          request-kind :kind
          request-resource :resource
-         dry-run :dryRun 
-         uid :uid 
+         dry-run :dryRun
+         uid :uid
          operation :operation} (-> body :request)]
-    (infof "kind: %-50s resource: %-50s" 
+    (infof "%-12s %-50s kind: %-50s resource: %-50s"
+           operation
+           (format "%s/%s" o-ns o-n)
            (format "%s/%s@%s" (:group request-kind) (:kind request-kind) (:version request-kind))
            (format "%s/%s@%s" (:group request-resource) (:resource request-resource) (:version request-resource)))
     (cond
-      (and 
-        (#{"Deployment" "Job" "DaemonSet" "ReplicaSet" "StatefulSet"} kind)
-        (= "production" o-n))
+      (and
+       (#{"Deployment" "Job" "DaemonSet" "ReplicaSet" "StatefulSet"} kind)
+       (= "production" o-n))
       (do
         (if dry-run
           (infof "%s dry run for uid %s - %s/%s" kind uid o-ns o-n)
@@ -126,11 +148,11 @@
         (if dry-run
           (infof "%s dry run for uid %s - %s/%s" kind uid o-ns o-n)
           (infof "%s admission request for uid %s - %s/%s" kind uid o-ns o-n))
-        (let [resource-decision (decision object)]
+        (let [resource-decision (async/<!! (decision object))]
           (infof "reviewing operation %s, of kind %s on %s/%s -> decision: %s" operation kind o-ns o-n resource-decision)
-          (when (and (not dry-run) (= "Pod" kind)) 
+          (when (and (not dry-run) (= "Pod" kind))
             (atomist->tap object))
           (create-review uid resource-decision)))
       :else
-        (create-review uid {:allowed true}))))
+      (create-review uid {:allowed true}))))
 

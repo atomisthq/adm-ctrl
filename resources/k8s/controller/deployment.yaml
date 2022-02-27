@@ -51,6 +51,11 @@ spec:
                 secretKeyRef:
                   name: endpoint
                   key: url
+            - name: ATOMIST_WORKSPACE
+              valueFrom:
+                secretKeyRef:
+                  name: endpoint
+                  key: team
             - name: CLUSTER_NAME 
               value: "default"
           volumeMounts:
