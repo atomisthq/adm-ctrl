@@ -8,3 +8,5 @@
 /.DS_Store
 /docs/*.dtmp
 /.clj-kondo/
+/resources/k8s/overlays/demo/endpoint.env
+/resources/k8s/overlays/docker-desktop/endpoint.env
