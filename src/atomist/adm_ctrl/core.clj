@@ -33,8 +33,8 @@
 
 (defn log-pod-images
   [pod-object]
-  (let [{{obj-ns :namespace obj-n :name} :metadata spec :spec {container-statuses :containerStatuses} :status kind :kind} pod-object
-        {{on-node :nodeName} :spec} (k8s/get-pod (k8s-client) obj-ns obj-n)
+  (let [{{obj-ns :namespace obj-n :name} :metadata spec :spec} pod-object
+        {{on-node :nodeName} :spec {container-statuses :containerStatuses} :status} (k8s/get-pod (k8s-client) obj-ns obj-n)
         {{{:keys [operatingSystem architecture]} :nodeInfo} :status} (k8s/get-node (k8s-client) on-node)
         spec-containers (concat (:containers spec) (:initContainers spec))]
 
@@ -64,7 +64,7 @@
     (infof "logged pod %s/%s" obj-ns obj-n)))
 
 (defn atomist->tap 
-  "wait for a pod to be visible - try every 5 seconds for up to 30 seconds"
+  "wait for a pod to be visible - try every 5 seconds for up to a minute"
   [{{obj-ns :namespace obj-n :name} :metadata :as object}]
   (infof "Pod %s/%s needs to be discovered and logged" obj-ns obj-n)
   (async/go-loop
@@ -78,7 +78,7 @@
                 (let [{{obj-ns :namespace obj-n :name} :metadata} object]
                   (warn (format "trial: %d: unable to log pod %s/%s - %s" counter obj-ns obj-n (str t)))
                   false))))
-           (< counter 6))
+           (< counter 12))
       (async/<! (async/timeout 5000))
       (recur (inc counter)))))
 
