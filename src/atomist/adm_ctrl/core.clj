@@ -31,25 +31,36 @@
                    (k8s/build-http-cluster-client)))))
   @k8s)
 
-(defn log-pod-images 
+(defn log-pod-images
   [pod-object]
   (let [{{obj-ns :namespace obj-n :name} :metadata spec :spec {container-statuses :containerStatuses} :status kind :kind} pod-object
         {{on-node :nodeName} :spec} (k8s/get-pod (k8s-client) obj-ns obj-n)
-        {{{:keys [operatingSystem architecture]} :nodeInfo} :status} (k8s/get-node (k8s-client) on-node)]
+        {{{:keys [operatingSystem architecture]} :nodeInfo} :status} (k8s/get-node (k8s-client) on-node)
+        spec-containers (concat (:containers spec) (:initContainers spec))]
+
+    ;; there should be a status for each spec-container before we can raise the event
+    (if (not (= (count spec-containers) (count container-statuses)))
+      (throw (ex-info "status not ready" {:status-count (count container-statuses)}))
+      ;; TODO support ephemeral containers
+      (doseq [{:keys [image]} spec-containers
+              :let [container-id (->> container-statuses
+                                      (some #(= image (image %)))
+                                      :containerID)]]
+        (infof "log image %s with containerID %s" image container-id)
+        (atomist-call {:image {:url image
+                               :containerID container-id
+                               :pod obj-n}
+                       :environment {:name (if (str/starts-with? cluster-name "atomist")
+                                             obj-ns
+                                             (str cluster-name "/" obj-ns))}
+                       :platform {:os operatingSystem
+                                  :architecture architecture}})))
 
     ;; at this point, do we have container ids?  If so, we can probably just add the container-id to the outgoing
     ;; message
     (doseq [{:keys [ready started containerID imageID name]} container-statuses]
       (infof "status: %-20s%s\t%-80s%-20s%-20s" name imageID containerID ready started))
-    
-    ;; TODO support ephemeral containers
-    (doseq [container (concat (:containers spec) (:initContainers spec))]
-      (atomist-call {:image {:url (:image container)}
-                     :environment {:name (if (str/starts-with? cluster-name "atomist") 
-                                           obj-ns
-                                           (str cluster-name "/" obj-ns))}
-                     :platform {:os operatingSystem
-                                :architecture architecture}}))
+
     (infof "logged pod %s/%s" obj-ns obj-n)))
 
 (defn atomist->tap 

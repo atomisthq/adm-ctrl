@@ -54,9 +54,11 @@
                                       c
                                       (throw (ex-info "run with --context" {})))}
          context {:depends [kube-config-context]
-                  :task (shell (format "kubectl config use-context %s" kube-config-context))}
+                  :task (do 
+                          (shell (format "kubectl config use-context %s" kube-config-context))
+                          kube-config-context)}
 
-         deploy-controller {:depends [context build-image]
+         deploy-controller {:depends [context version]
                             :task (-> (p/process "kustomize build ." {:dir (format "resources/k8s/overlays/%s" context)})
                                       (p/process "envsubst" {:extra-env {"GIT_DESCRIBE" version}})
                                       (p/process "kubectl apply -f -" {:out :string})
