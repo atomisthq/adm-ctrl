@@ -38,15 +38,20 @@
         {{{:keys [operatingSystem architecture]} :nodeInfo} :status} (k8s/get-node (k8s-client) on-node)
         spec-containers (concat (:containers spec) (:initContainers spec))]
 
+    ;; log any statuses for debugging
+    (doseq [{:keys [ready started containerID imageID name image]} container-statuses]
+      (infof "status: %-20s %s %s\t%-80s%-20s%-20s" name image imageID containerID ready started))
+
     ;; there should be a status for each spec-container before we can raise the event
     (if (not (= (count spec-containers) (count container-statuses)))
       (throw (ex-info "status not ready" {:status-count (count container-statuses)}))
       ;; TODO support ephemeral containers
       (doseq [{:keys [image]} spec-containers
               :let [container-id (->> container-statuses
-                                      (some #(= image (:image %)))
+                                      (filter #(= image (:image %)))
+                                      first
                                       :containerID)]]
-        (infof "log image %s with containerID %s" image container-id)
+        (infof "log image %s with containerID %s in pod %s" image container-id obj-n)
         (atomist-call {:image {:url image
                                :containerID container-id
                                :pod obj-n}
@@ -55,11 +60,6 @@
                                              (str cluster-name "/" obj-ns))}
                        :platform {:os operatingSystem
                                   :architecture architecture}})))
-
-    ;; at this point, do we have container ids?  If so, we can probably just add the container-id to the outgoing
-    ;; message
-    (doseq [{:keys [ready started containerID imageID name]} container-statuses]
-      (infof "status: %-20s%s\t%-80s%-20s%-20s" name imageID containerID ready started))
 
     (infof "logged pod %s/%s" obj-ns obj-n)))
 
