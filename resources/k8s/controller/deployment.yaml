@@ -51,13 +51,13 @@ spec:
                 secretKeyRef:
                   name: endpoint
                   key: url
+            - name: CLUSTER_NAME 
+              value: "default"
             - name: ATOMIST_WORKSPACE
               valueFrom:
                 secretKeyRef:
                   name: endpoint
                   key: team
-            - name: CLUSTER_NAME 
-              value: "default"
           volumeMounts:
             - name: jks
               mountPath: "/jks"
