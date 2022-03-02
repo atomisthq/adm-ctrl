@@ -112,7 +112,7 @@
     [?check :check/image ?image]
     [?check :check/name ?check-name]])
 
-(defn admit? [{:check/keys [conclusion comment]}]
+(defn admit? [[[{:check/keys [conclusion comment]}]]]
   (infof "admission conclusion %s (%s)" conclusion comment)
   (= :check.conclusion/ready (-> conclusion :db/ident keyword)))
 
@@ -129,16 +129,14 @@
   (async/go
     (infof "check %s in %s using query %s" image workspace-id (apply str (take 40 (str admission-query))))
     (let [{:keys [status body headers]}
-          (async/<! (->
-                     (client/post (format (or url (format
-                                                   "https://%s/datalog/team/%s"
-                                                   "api.atomist.com" workspace-id)))
-                                  {:headers {"Authorization" (format "Bearer %s" api-key)
-                                             "Accept-Encoding" "gzip"
-                                             "Content-Type" "application/edn"}
-                                   :throw false
-                                   :body {:query (pr-str admission-query)
-                                          :args (parse-image image)}})))]
+          (client/post (format "https://%s/datalog/team/%s"
+                               "api.atomist.com" workspace-id)
+                       {:headers {"Authorization" (format "Bearer %s" api-key)
+                                  "Accept-Encoding" "gzip"
+                                  "Content-Type" "application/edn"}
+                        :throw false
+                        :body (pr-str {:query (pr-str admission-query)
+                                       :args (parse-image image)})})]
       (if (not (= 200 status))
         (warnf "ERROR - %s %s, %s\n" status body headers)
         (infof "Admission response: %s" (-> body
