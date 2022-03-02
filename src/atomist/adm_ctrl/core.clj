@@ -5,8 +5,9 @@
             [clj-http.client :as client]
             [atomist.logging]
             [clojure.java.io :as io]
+            [clojure.edn]
             [taoensso.timbre :as timbre
-             :refer [info  warn infof]]
+             :refer [info warnf warn infof]]
             [clojure.string :as str]))
 
 (def url (System/getenv "ATOMIST_URL"))
@@ -95,13 +96,54 @@
 (def create-review (comp (fn [review] (infof "review: %s" review) review) admission-review))
 
 (def namespaces-to-enforce #{"production"})
-(def admission-query '[:from :in :where])
 
-(defn atomist-admission-control 
+;; has to be :check.conclusion/ready
+;; empty result set means that the image is not even checked yet - must reject
+(def admission-query
+  '[:find (pull ?check [:check/conclusion
+                        :check/comment])
+    :in $ $b % ?ctx [?host ?repository ?tag]
+    :where
+    [?image-repository :docker.repository/repository ?repository]
+    [?image-repository :docker.repository/host ?host]
+    [?image-tag :docker.tag/repository ?image-repository]
+    [?image-tag :docker.tag/name ?tag]
+    [?image-tag :docker.tag/image ?image]
+    [?check :check/image ?image]
+    [?check :check/name ?check-name]])
+
+(defn admit? [{:check/keys [conclusion comment]}]
+  (infof "admission conclusion %s (%s)" conclusion comment)
+  (= :check.conclusion/ready (-> conclusion :db/ident keyword)))
+
+(defn parse-image [image]
+  (let [[_ host repository tag] (re-find #"(.*?)/(.*):(.*)" image)]
+    [host repository tag]))
+
+(comment
+  (parse-image "gcr.io/personalsdm-216019/altjserver:v115"))
+
+(defn atomist-admission-control
   "channel should return true if image should be admitted"
   [image]
   (async/go
     (infof "check %s in %s using query %s" image workspace-id (apply str (take 40 (str admission-query))))
+    (let [{:keys [status body headers]}
+          (async/<! (->
+                     (client/post (format (or url (format
+                                                   "https://%s/datalog/team/%s"
+                                                   "api.atomist.com" workspace-id)))
+                                  {:headers {"Authorization" (format "Bearer %s" api-key)
+                                             "Accept-Encoding" "gzip"
+                                             "Content-Type" "application/edn"}
+                                   :throw false
+                                   :body {:query (pr-str admission-query)
+                                          :args (parse-image image)}})))]
+      (if (not (= 200 status))
+        (warnf "ERROR - %s %s, %s\n" status body headers)
+        (infof "Admission response: %s" (-> body
+                                            (clojure.edn/read-string)
+                                            (admit?)))))
     true))
 
 (defn decision

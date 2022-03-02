@@ -20,7 +20,7 @@ metadata:
     app.kubernetes.io/part-of: policy-controller
   name: policy-controller
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app.kubernetes.io/name: policy-controller
@@ -90,10 +90,10 @@ spec:
             periodSeconds: 10
           resources:
             limits:
-              cpu: 100m
+              cpu: 300m
               memory: 512Mi
             requests:
-              cpu: 100m
+              cpu: 300m
               memory: 512Mi
           securityContext:
             runAsNonRoot: true
