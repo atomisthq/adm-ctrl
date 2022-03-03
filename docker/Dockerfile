@@ -1,6 +1,6 @@
-FROM babashka/babashka:0.6.5 AS bb
+FROM babashka/babashka:0.6.5@sha256:66abc2ad36c33bd82537b11e341629a0ead7c119f301c1b8c7865cfc45e61ddd AS bb
 
-FROM openjdk:11-jre-slim-buster@sha256:3541e192575af8724670b631f5ac63e61854df8cc79816462754132ea94d44b1
+FROM openjdk:11-jre-slim-buster@sha256:3394135c413b0e6dcbc5283b16051e3f3c88855c79642fc0621aea81f5388c43
 
 RUN apt-get update && \
     apt-get -y --no-install-recommends install openssl curl && \
