@@ -147,7 +147,7 @@
   "query atomist to check whether image has passed policy checks
 
     returns channel - channel will provide one value and then close (value true if image should be admitted)"
-  [image]
+  [image o-ns]
   (async/go
     (infof "check %s in %s using query %s" image workspace-id (apply str (take 40 (str admission-query))))
     (let [{:keys [status body headers]}
@@ -158,15 +158,16 @@
                                   "Content-Type" "application/edn"}
                         :throw false
                         :body (pr-str {:query (pr-str admission-query)
-                                       :args (conj (parse-image image) "demo/production")})})
+                                       :args (conj (parse-image image) (format "%s/%s" cluster-name o-ns))})})
           admitted? (and
                      (= 200 status) 
                      (-> body
                          (clojure.edn/read-string)
-                         (admit?)))]
+                         (admit?)))
+          message (format "ERROR - %s %s, %s\n" status body headers)]
       (when (not admitted?)
-        (warnf "ERROR - %s %s, %s\n" status body headers))
-      admitted?)))
+        (warn message))
+      [admitted? (format "%s - %s" image message)])))
 
 (defn decision
   "check atomist admission control for selected namespaces only"
@@ -178,11 +179,22 @@
       (do
         ;; TODO support initContainers as well
         (infof "check controls on %s" (->> containers (map :image) (str/join ",")))
-        {:allowed (async/<! (->> (for [{:keys [image]} containers]
-                                   (atomist-admission-control image))
-                                 (async/merge)
-                                 (async/reduce (fn [d v] (and d v)) true)))})
-      {:allowed true})))
+        (async/<! (->> (for [{:keys [image]} containers]
+                         (atomist-admission-control image o-ns))
+                       (async/merge)
+                       (async/reduce
+                        (fn [{:keys [allowed status]
+                              :as response} [b s]]
+                          (-> response
+                              (update :allowed (fn [agg] (and agg b)))
+                              ((fn [{allowed :allowed :as response}] (assoc-in response [:status :code] (if allowed 200 400))))
+                              (update-in [:status :message] (fn [agg] (format "%s\n%s" agg s)))))
+                        {:allowed true
+                         :status {:code 200
+                                  :message ""}}))))
+      {:allowed true
+       :status {:code 200
+                :message (format "namespace %s is not protected" o-ns)}})))
 
 (defn handle-admission-control-request
   "Check Pods - everything else is permitted by default
