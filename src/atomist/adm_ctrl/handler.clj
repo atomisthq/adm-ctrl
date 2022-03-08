@@ -3,7 +3,8 @@
             [ring.adapter.jetty :refer [run-jetty]]
             [ring.middleware.json :refer [wrap-json-response wrap-json-body]]
             [compojure.route :as route]
-            [atomist.adm-ctrl.core :refer [handle-admission-control-request]]
+            [atomist.adm-ctrl.core :refer [handle-admission-control-request k8s-client]]
+            [atomist.namespaces :as atm-namespaces]
             [clojure.java.io :as io]
             [taoensso.timbre :as timbre])
   (:import [java.security KeyStore]
@@ -39,6 +40,7 @@
   (try
     (let [key-password (or key-password "atomist")
           keystore (->keystore (io/file (or keystore "/jks/server.pkcs12")) key-password)]
+      (atm-namespaces/start-watching (k8s-client))
       (run-jetty app {:ssl-port 8443
                       :ssl? true
                       :http? false

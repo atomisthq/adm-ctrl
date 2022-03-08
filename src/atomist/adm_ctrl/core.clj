@@ -4,6 +4,7 @@
             [atomist.k8s :as k8s]
             [clj-http.client :as client]
             [atomist.logging]
+            [atomist.namespaces :refer [namespaces-to-enforce]]
             [clojure.java.io :as io]
             [clojure.edn]
             [taoensso.timbre :as timbre
@@ -95,7 +96,6 @@
 
 (def create-review (comp (fn [review] (infof "review: %s" review) review) admission-review))
 
-(def namespaces-to-enforce (atom #{"production"}))
 
 ;; has to be :check.conclusion/ready
 ;; empty result set means that the image is not even checked yet - must reject
@@ -140,7 +140,6 @@
 ;; https://github.com/vonwig/altjservice/commit/2a13fdf2c43de059f173d12523e26f9d0a298165
 ;; https://dso.atomist.com/AZQP0824Q/overview/images/gcr.io/personalsdm-216019/altjserver?platform=linux%2Famd64
 
-
 (comment
   (parse-image "gcr.io/personalsdm-216019/altjserver:v115"))
 
@@ -159,13 +158,15 @@
                                   "Content-Type" "application/edn"}
                         :throw false
                         :body (pr-str {:query (pr-str admission-query)
-                                       :args (conj (parse-image image) "demo/production")})})]
-      (if (not (= 200 status))
-        (warnf "ERROR - %s %s, %s\n" status body headers)
-        (infof "Admission response: %s" (-> body
-                                            (clojure.edn/read-string)
-                                            (admit?)))))
-    true))
+                                       :args (conj (parse-image image) "demo/production")})})
+          admitted? (and
+                     (= 200 status) 
+                     (-> body
+                         (clojure.edn/read-string)
+                         (admit?)))]
+      (when (not admitted?)
+        (warnf "ERROR - %s %s, %s\n" status body headers))
+      admitted?)))
 
 (defn decision
   "check atomist admission control for selected namespaces only"
