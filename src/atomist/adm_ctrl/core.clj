@@ -95,26 +95,38 @@
 
 (def create-review (comp (fn [review] (infof "review: %s" review) review) admission-review))
 
-(def namespaces-to-enforce #{"production"})
+(def namespaces-to-enforce (atom #{"production"}))
 
 ;; has to be :check.conclusion/ready
 ;; empty result set means that the image is not even checked yet - must reject
 (def admission-query
-  '[:find (pull ?check [:check/conclusion
-                        :check/comment])
-    :in $ $b % ?ctx [?host ?repository ?tag]
+  '[:find
+    ;?status is :image-not-found or :image-not-linked or :no-policies-configured or :success or :failure
+    ;?stream is the string
+    ;?failed-checks ?successful-checks are vectors of entity ids
+    ;?missing-checks is a vector of strings
+    ?status ?stream ?failed-checks ?successful-checks ?missing-checks
+
+    :in $ $before-db % ?ctx [?host ?repository ?tag ?stream-name]
     :where
     [?image-repository :docker.repository/repository ?repository]
     [?image-repository :docker.repository/host ?host]
     [?image-tag :docker.tag/repository ?image-repository]
     [?image-tag :docker.tag/name ?tag]
     [?image-tag :docker.tag/image ?image]
-    [?check :check/image ?image]
-    [?check :check/name ?check-name]])
+    [?image :docker.image/digest ?digest]
+    (image-checks ?digest ?stream-name ?status-keyword ?successful-checks ?failed-checks ?missing-check-names)])
 
-(defn admit? [[[{:check/keys [conclusion comment]}]]]
-  (infof "admission conclusion %s (%s)" conclusion comment)
-  (= :check.conclusion/ready (-> conclusion :db/ident keyword)))
+(defn admit? [results]
+  (info "admit? results " results)
+  (let [[[status stream failed success missing]] results]
+    (infof "admission conclusion %s on stream %s %d/%d (%d missing)"
+           status
+           stream
+           (count success)
+           (+ (count success) (count failed) (count missing))
+           (count missing))
+    (= :success status)))
 
 (defn parse-image [image]
   (let [[_ host repository tag] (re-find #"(.*?)/(.*):(.*)" image)]
@@ -124,7 +136,9 @@
   (parse-image "gcr.io/personalsdm-216019/altjserver:v115"))
 
 (defn atomist-admission-control
-  "channel should return true if image should be admitted"
+  "query atomist to check whether image has passed policy checks
+
+    returns channel - channel will provide one value and then close (value true if image should be admitted)"
   [image]
   (async/go
     (infof "check %s in %s using query %s" image workspace-id (apply str (take 40 (str admission-query))))
@@ -145,12 +159,12 @@
     true))
 
 (defn decision
-  "check atomist admission control for some namespaces"
+  "check atomist admission control for selected namespaces only"
   [{{o-ns :namespace} :metadata
     {:keys [containers]} :spec
     :as object}]
   (async/go
-    (if (namespaces-to-enforce o-ns)
+    (if (@namespaces-to-enforce o-ns)
       (do
         ;; TODO support initContainers as well
         (infof "check controls on %s" (->> containers (map :image) (str/join ",")))
@@ -161,7 +175,8 @@
       {:allowed true})))
 
 (defn handle-admission-control-request
-  ""
+  "Check Pods - everything else is permitted by default
+   log non-Pod admission requests"
   [{:keys [body] :as req}]
   ;; request object could be nil if something is being deleted
   (let [{{:keys [kind] {o-ns :namespace o-n :name} :metadata :as object} :object

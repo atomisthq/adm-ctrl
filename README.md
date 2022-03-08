@@ -97,11 +97,23 @@ At this point, the admission controller will be running but the cluster will not
 
 ```bash
 # skip the kube-system namespace
-k label namespace kube-system policy-controller.atomist.com/webhook=ignore
+kubectl label namespace kube-system policy-controller.atomist.com/webhook=ignore
 # validating webhook configuration
 kubectl apply -f resources/k8s/admission/admission.yaml
 # finally, patch the admission webhook with the ca certificate generated earlier
 kubectl apply -f resources/k8s/jobs/patch.yaml
+```
+
+## Enable image check policy
+
+```bash
+kubectl annotate namespace production policy-controller.atomist.com/policy=enabled
+```
+
+Disable policy on a namespace by removing the annotation or setting it to something other than `enabled`.
+
+```bash
+kubectl annotate namespace production policy-controller.atomist.com/policy-
 ```
 
 [dynamic-admission-control]: https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/

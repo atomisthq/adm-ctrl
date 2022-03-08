@@ -5,7 +5,6 @@
         ring/ring-jetty-adapter {:mvn/version "1.9.4"}
         ring/ring-json {:mvn/version "0.5.1"}
         io.kubernetes/client-java {:mvn/version "10.0.0"}
-        nubank/k8s-api {:mvn/version "0.1.2"}
         clj-http/clj-http {:mvn/version "3.12.3"}
         ;; need one logger impl for k8s-api and jetty
         org.slf4j/slf4j-simple {:mvn/version "1.7.21"}
