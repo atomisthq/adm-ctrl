@@ -132,6 +132,15 @@
   (let [[_ host repository tag] (re-find #"(.*?)/(.*):(.*)" image)]
     [host repository tag]))
 
+;; https://dso.atomist.com/AZQP0824Q/overview/images/gcr.io/personalsdm-216019/altjserver/digests/sha256:a9af38ee827fd4b7350316135200c44c16b5506de374e615645550accb8e2325
+;; https://github.com/vonwig/altjservice/commit/2a13fdf2c43de059f173d12523e26f9d0a298165
+;; (28 minutes ago)
+;; gcr.io/personalsdm-216019/altjserver:v148
+;; https://dso.atomist.com/AZQP0824Q/overview/images/gcr.io/personalsdm-216019/altjserver/digests/sha256%3Aa9cad9faaec202f722a2b841ab8ed5a5c46157f4c993a7afec137c68e87f5ea7
+;; https://github.com/vonwig/altjservice/commit/2a13fdf2c43de059f173d12523e26f9d0a298165
+;; https://dso.atomist.com/AZQP0824Q/overview/images/gcr.io/personalsdm-216019/altjserver?platform=linux%2Famd64
+
+
 (comment
   (parse-image "gcr.io/personalsdm-216019/altjserver:v115"))
 
@@ -150,7 +159,7 @@
                                   "Content-Type" "application/edn"}
                         :throw false
                         :body (pr-str {:query (pr-str admission-query)
-                                       :args (parse-image image)})})]
+                                       :args (conj (parse-image image) "demo/production")})})]
       (if (not (= 200 status))
         (warnf "ERROR - %s %s, %s\n" status body headers)
         (infof "Admission response: %s" (-> body
