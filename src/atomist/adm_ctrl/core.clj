@@ -105,7 +105,7 @@
     ;?stream is the string
     ;?failed-checks ?successful-checks are vectors of entity ids
     ;?missing-checks is a vector of strings
-    ?status-keyword ?stream-name ?failed-checks ?successful-checks ?missing-checks-names
+    ?status-keyword ?stream-name ?failed-checks ?successful-checks ?missing-check-names
 
     :in $ $before-db % ?ctx [?host ?repository ?tag ?stream-name]
     :where
