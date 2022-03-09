@@ -20,7 +20,7 @@ metadata:
     app.kubernetes.io/part-of: policy-controller
   name: policy-controller
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app.kubernetes.io/name: policy-controller
@@ -53,6 +53,11 @@ spec:
                   key: url
             - name: CLUSTER_NAME 
               value: "default"
+            - name: ATOMIST_WORKSPACE
+              valueFrom:
+                secretKeyRef:
+                  name: endpoint
+                  key: team
           volumeMounts:
             - name: jks
               mountPath: "/jks"
@@ -64,7 +69,7 @@ spec:
               path: /health
               scheme: HTTPS
             failureThreshold: 2
-            initialDelaySeconds: 300
+            initialDelaySeconds: 180
             timeoutSeconds: 15
             periodSeconds: 30
           readinessProbe:
@@ -73,7 +78,7 @@ spec:
               path: /health
               scheme: HTTPS
             failureThreshold: 2
-            initialDelaySeconds: 300
+            initialDelaySeconds: 180
             timeoutSeconds: 15
             periodSeconds: 30
           startupProbe:
@@ -85,10 +90,10 @@ spec:
             periodSeconds: 10
           resources:
             limits:
-              cpu: 100m
+              cpu: 150m
               memory: 512Mi
             requests:
-              cpu: 100m
+              cpu: 150m
               memory: 512Mi
           securityContext:
             runAsNonRoot: true

@@ -1,0 +1,8 @@
+{"type":"ADDED","object":{"apiVersion":"policy-controller.atomist.com/v1","kind":"Rule","metadata":{"annotations":{"kubectl.kubernetes.io/
+last-applied-configuration":"{\"apiVersion\":\"policy-controller.atomist.com/v1\",\"kind\":\"Rule\",\"metadata\":{\"annotations\":{},\"nam
+e\":\"rule1\",\"namespace\":\"production\"},\"spec\":{\"message\":\"rule violation\",\"query\":\"[:select :in :where]\"}}\n"},"creationTim
+estamp":"2022-02-03T06:36:26Z","generation":1,"managedFields":[{"apiVersion":"policy-controller.atomist.com/v1","fieldsType":"FieldsV1","f
+ieldsV1":{"f:metadata":{"f:annotations":{".":{},"f:kubectl.kubernetes.io/last-applied-configuration":{}}},"f:spec":{".":{},"f:message":{},
+"f:query":{}}},"manager":"kubectl-client-side-apply","operation":"Update","time":"2022-02-03T06:36:26Z"}],"name":"rule1","namespace":"prod
+uction","resourceVersion":"907559","uid":"e03f76e3-f87a-4cd0-8571-389baa8cb831"},"spec":{"message":"rule violation","query":"[:select :in
+:where]"}}}

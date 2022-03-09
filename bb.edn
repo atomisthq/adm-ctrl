@@ -8,48 +8,67 @@
                     [babashka.process :as p]
                     [babashka.fs :as fs]
                     [clojure.tools.cli :as cli]
-                    [tasks :as git]]
+                    [tasks]]
          :init (do (def cli-opts (cli/parse-opts *command-line-args* [["-m" "--message MESSSAGE" ""]
                                                                       [nil "--skip-clean-check" "run anyway"]
-                                                                      [nil "--context CONTEXT" "kube context"]]))
-                   (def kube-config-context (-> cli-opts :options :context))
-                   )
+                                                                      [nil "--context CONTEXT" "kube context"]])))
          :enter (let [{:keys [name]} (current-task)] (status/line :head "TASK %s %s" name (string/join " " *command-line-args*)))
          :leave (let [{:keys [name]} (current-task)] (status/line :detail "\nTASK %s done." name))
 
-         commit (git/recommit-any-updates (-> cli-opts :options :message))
-         next-version (println (git/next-tag))
+         version {:task (tasks/describe)}
 
-         clean? {:task (if (and (not (-> cli-opts :options :skip-clean-check)) (not (git/clean?)))
+         print-version {:depends [version]
+                        :task (println version)}
+
+         next-version {:task (tasks/next-tag)}
+
+         print-next-version {:depends [next-version]
+                             :task (println next-version)}
+
+         tag {:depends [next-version]
+              :task (shell (format "git tag %s" next-version))}
+
+         commit {:task (tasks/recommit-any-updates (or (-> cli-opts :options :message) "bump"))}
+
+         clean? {:task (if (and (not (-> cli-opts :options :skip-clean-check)) (not (tasks/clean?)))
                          (throw (ex-info "dirty working copy. stop" {})))}
-         tag {:task (shell (format "git tag %s" (git/next-tag)))}
-         ;; requires the jib tool to be installed
-         build-image {:depends [clean?]
+
+         build-image {:depends [clean? version]
                       :task (when (or
                                    (seq (fs/modified-since "target/app.jar" (fs/glob "src" "**.clj")))
                                    (seq (fs/modified-since "target/app.jar" (fs/glob "." "deps.edn")))
                                    (seq (fs/modified-since "target/app.jar" (fs/glob "." "jib.edn"))))
-                              (clojure "-Tjib" "build" ":tag" (git/describe)))}
+                              (clojure "-Tjib" "build" ":tag" version))}
+
          build-pkcs-create-iamge {:task (shell "docker build -t atomist/pkcs-create -f docker/Dockerfile .")}
          push-pkcs-create-iamge {:task (shell {:env {"DOCKER_CONFIG" ".docker"}} "docker push atomist/pkcs-create")}
+
          -k8-edit {:depends [build-image]
-                   :task (shell {:dir "resources/k8s/controller"} (format "kustomize edit set image atomist/adm-ctrl:%s" (git/describe)))}
-         -k8-edit-for-release {:task (shell {:dir "resources/k8s/controller"}
-                                            (format "kustomize edit set image atomist/adm-ctrl:%s" (git/next-tag)))}
-         context (shell (if kube-config-context 
-                          (format "kubectl config use-context %s" kube-config-context)
-                          (throw (ex-info "needs --context" {}))))
-         deploy-controller {:depends [context #_build-image]
-                            :task (-> (p/process "kustomize build ." {:dir (format "resources/k8s/overlays/%s" kube-config-context)})
-                                      (p/process "envsubst" {:extra-env {"GIT_DESCRIBE" (git/describe)}})
+                   :task (shell {:dir "resources/k8s/controller"} (format "kustomize edit set image atomist/adm-ctrl:%s" version))}
+         -k8-edit-for-release {:depends [next-version]
+                               :task (shell {:dir "resources/k8s/controller"}
+                                            (format "kustomize edit set image atomist/adm-ctrl:%s" next-version))}
+         release {:depends [clean? -k8-edit-for-release commit tag build-image]}
+
+         kube-config-context {:task (if-let [c (-> cli-opts :options :context)]
+                                      c
+                                      (throw (ex-info "run with --context" {})))}
+         context {:depends [kube-config-context]
+                  :task (do 
+                          (shell (format "kubectl config use-context %s" kube-config-context))
+                          kube-config-context)}
+
+         deploy-controller {:depends [context version]
+                            :task (-> (p/process "kustomize build ." {:dir (format "resources/k8s/overlays/%s" context)})
+                                      (p/process "envsubst" {:extra-env {"GIT_DESCRIBE" version}})
                                       (p/process "kubectl apply -f -" {:out :string})
                                       deref
                                       :out
                                       (println))}
+
          admission {:depends [context]
                     :task (-> (p/process "kustomize build resources/k8s/admission")
                               (p/process "kubectl apply -f -" {:out :string})
                               deref
                               :out
-                              (println))}
-         release {:depends [clean? -k8-edit-for-release commit tag build-image]}}}
+                              (println))}}}

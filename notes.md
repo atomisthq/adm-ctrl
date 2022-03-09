@@ -46,3 +46,15 @@ x509: certificate relies on legacy Common Name field, use SANs or temporarily en
 [image-policy-webhook]: https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#imagepolicywebhook
 [deprecated-pod-security-policies]: https://www.antitree.com/2020/11/pod-security-policies-are-being-deprecated-in-kubernetes/
 
+## ImagePolicy
+
+* Evaluating when an image is "ready"
+* when it becomes ready, we know that an environment should be using this digest
+* the current digest can be written as a CRD so the cluster knows to reconcile it
+* the current digest can also trigger a GitOps Push/PullRequest if we are tracking this image in a visible repo.
+  * these would be a series of repo/branch-ref/path definitions that we'd scan for container images
+  * when a new version is discovered, we should trigger either a PR or commit to this repo
+  * [{:update-policy :pr_or_push, :branch_ref :regex, :root_path :string}]
+* the overall strategy is that environments have rules
+  * [{:rules [rule] :environment name :actions [{:action :gitops_or_crd_push}]}]
+  * if the rule is gitops based then we have to be able to scan a set of gitops repos for update-able configs
