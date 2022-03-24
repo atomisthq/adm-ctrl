@@ -36,7 +36,7 @@
   @k8s)
 
 (defn log-pod-images
-  [pod-object]
+  [operation pod-object]
   (let [{{obj-ns :namespace obj-n :name} :metadata spec :spec} pod-object
         {{on-node :nodeName} :spec {container-statuses :containerStatuses} :status} (k8s/get-pod (k8s-client) obj-ns obj-n)
         {{{:keys [operatingSystem architecture]} :nodeInfo} :status} (k8s/get-node (k8s-client) on-node)
@@ -44,7 +44,7 @@
 
     ;; log any statuses for debugging
     (doseq [{:keys [ready started containerID imageID name image]} container-statuses]
-      (infof "status: %-20s %s %s\t%-80s%-20s%-20s" name image imageID containerID ready started))
+      (infof "operation: %s status: %-20s %s %s\t%-80s%-20s%-20s" operation name image imageID containerID ready started))
 
     ;; there should be a status for each spec-container before we can raise the event
     (if (not (= (count spec-containers) (count container-statuses)))
@@ -59,6 +59,7 @@
         (atomist-call {:image {:url image
                                :containerID container-id
                                :pod obj-n}
+                       :operation operation ; CREATE, UPDATE, DELETE
                        :environment {:name (if (str/starts-with? cluster-name "atomist")
                                              obj-ns
                                              (str cluster-name "/" obj-ns))}
@@ -67,16 +68,16 @@
 
     (infof "logged pod %s/%s" obj-ns obj-n)))
 
-(defn atomist->tap 
+(defn atomist->tap
   "wait for a pod to be visible - try every 5 seconds for up to a minute"
-  [{{obj-ns :namespace obj-n :name} :metadata :as object}]
+  [operation {{obj-ns :namespace obj-n :name} :metadata :as object}]
   (infof "Pod %s/%s needs to be discovered and logged" obj-ns obj-n)
   (async/go-loop
    [counter 0]
     (when (and
            (not
             (try
-              (log-pod-images object)
+              (log-pod-images operation object)
               true
               (catch Throwable t
                 (let [{{obj-ns :namespace obj-n :name} :metadata} object]
@@ -160,7 +161,7 @@
                         :body (pr-str {:query (pr-str admission-query)
                                        :args (conj (parse-image image) (format "%s/%s" cluster-name o-ns))})})
           admitted? (and
-                     (= 200 status) 
+                     (= 200 status)
                      (-> body
                          (clojure.edn/read-string)
                          (admit?)))
@@ -225,12 +226,13 @@
       (do
         (if dry-run
           (infof "%s dry run for uid %s - %s/%s" kind uid o-ns o-n)
-          (infof "%s admission request for uid %s - %s/%s" kind uid o-ns o-n))
-        (let [resource-decision (async/<!! (decision object))]
-          (infof "reviewing operation %s, of kind %s on %s/%s -> decision: %s" operation kind o-ns o-n resource-decision)
-          (when (and (not dry-run) (= "Pod" kind))
-            (atomist->tap object))
-          (create-review uid resource-decision)))
+          (do
+            (infof "%s admission request for uid %s - %s/%s" kind uid o-ns o-n)
+            (atomist->tap operation object)))
+        (if (#{"UPDATE" "CREATE"} operation)
+          (let [resource-decision (async/<!! (decision object))]
+            (infof "reviewing operation %s, of kind %s on %s/%s -> decision: %s" operation kind o-ns o-n resource-decision)
+            (create-review uid resource-decision))
+          (create-review uid {:allowed true})))
       :else
       (create-review uid {:allowed true}))))
-

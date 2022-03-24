@@ -32,6 +32,7 @@ webhooks:
         operations:
           - "CREATE"
           - "UPDATE"
+          - "DELETE"
         resources:
           - "pods"
           - "deployments"
@@ -43,7 +44,7 @@ webhooks:
       service:
         namespace: "atomist"
         name: "policy-controller"
-      caBundle: "" 
+      caBundle: ""
     admissionReviewVersions: ["v1"]
     sideEffects: None
     timeoutSeconds: 10
