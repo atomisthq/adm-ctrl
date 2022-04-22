@@ -6,8 +6,6 @@ resources:
 - cluster_role.yaml
 - cluster_role_binding.yaml
 - namespace.yaml
-secretGenerator:
-- name: endpoint
 commonLabels:
   app.kubernetes.io/name: atomist
 images:
