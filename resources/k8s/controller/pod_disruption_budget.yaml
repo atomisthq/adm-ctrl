@@ -19,4 +19,5 @@ metadata:
 spec:
   minAvailable: 1
   selector:
-    app.kubernetes.io/name: policy-controller
+    matchLabels:
+      app.kubernetes.io/name: policy-controller
