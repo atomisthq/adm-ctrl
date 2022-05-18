@@ -6,6 +6,7 @@ resources:
 - cluster_role.yaml
 - cluster_role_binding.yaml
 - namespace.yaml
+- pod_disruption_budget.yaml
 commonLabels:
   app.kubernetes.io/name: atomist
 images:
