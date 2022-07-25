@@ -1,3 +1,23 @@
+# adm-ctrl
+
+A [ValidatingWebhookConfiguration](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#validatingadmissionwebhook) which allows integration with Atomist for two purposes:
+
+1) To protect clusters from running vulnerable images. The service will validate images deployed to [enabled namespaces (via annotation)](#enable-image-check-policy) by checking whether Atomist has recorded any failed checks for the image being deployed.
+1) To track which images are deployed to different clusters.
+
+The underlying deployment will run a Clojure web-service which listens on `/` for `POST`s from the cluster. For pods being created in namespaces where enforcement has been enabled the service will make a query against Atomist's API and will check that, for the image, checks have been run and that there are no failed checks listed. For all pods appearing in the cluster (against any namespace, not just those with enforcement enabled) the service will call back to Atomist and make a note that the image has been seen in the cluster. This allows tracking of images as they move through the deployment process (from staging to production etc.) and allows the building of an inventory of deployed images in each cluster.
+
+## Configuration
+
+Configuration of the service is managed via the following environment variables:
+
+* `ATOMIST_URL` - The webhook URL to use when talking back to Atomist. This can be found via the [Integrations page](https://dso.atomist.com/r/auth/integrations) on the Atomist website.
+* `ATOMIST_WORKSPACE` - The ID of your Atomist workspace. This can be found via the [Integrations page](https://dso.atomist.com/r/auth/integrations) on the Atomist website.
+* `ATOMIST_APIKEY` - An API key which will be used when talking abck to Atomist. This needs to have sufficient privileges against the workspace above. API keys can be generated via the [Integrations page](https://dso.atomist.com/r/auth/integrations) on the Atomist website.
+* `CLUSTER_NAME` - A name which is used to describe the cluster. This name will be used to track which clusters an image has been deployed to as it progresses so a name like `staging` or `production` is a likely value.
+
+There are samples of the various K8s objects which are required for the controller to function in the `resources/k8s` directory. By default the `ValidatingWebhookConfiguration` in the samples has a `failurePolicy` of `Ignore` which is a good starting point but as you become more confident in your adoption you might want to change this to to `Fail`.
+
 ## Installation
 
 ### Prerequisites
@@ -19,7 +39,7 @@ This repo contains a set of base kubernetes that you'll adapt using `kustomize`.
 
 Create an overlay for your cluster.  Choose a cluster name and then create a new overlay directory.
 
-```
+```bash
 CLUSTER_NAME=replacethis
 mkdir -p resources/k8s/overlays/${CLUSTER_NAME}
 ```
@@ -33,7 +53,7 @@ apiKey=<replace this>
 url=<replace this>
 ```
 
-The `apiKey` and `url` should be filled in with your workspace's values.  Find these in the [atomist app](https://dso.atomist.com/r/auth/integrations) and replace them in the file.
+The `apiKey` and `url` should be filled in with your workspace's values.  Find these in the [Integrations page](https://dso.atomist.com/r/auth/integrations) of the Atomist app and replace them in the file.
 
 ### 3. Create ssl certs for your Admission Controller
 
@@ -45,7 +65,7 @@ The communication between the api-server and the admission controller will be ov
 
 You can do steps 1 and 3 now.
 
-```
+```bash
 # creates roles and service account for running jobs
 kustomize build resources/k8s/certs | kubectl apply -f -
 kubectl apply -f resources/k8s/jobs/create.yaml
@@ -60,11 +80,11 @@ This procedure will create a service account, a cluster role binding, two secret
 
 Use the same overlay that you created above (`resources/k8s/overlays/${CLUSTER_NAME}`).  Copy in a template kustomization.yaml file.
 
-```
+```bash
 cp resources/templates/default_controller.yaml resources/k8s/overlays/${CLUSTER_NAME}/kustomization.yaml
 ```
 
-This kustomization file will permit you to change the `CLUSTER_NAME` environment variable.  
+This kustomization file will permit you to change the `CLUSTER_NAME` environment variable.
 In the initial copy of the file, the value will be `"default"`, but it should be changed to the name of your cluster.  This change is made to the final line in your new kustomization file.
 
 ```yaml
@@ -117,4 +137,3 @@ kubectl annotate namespace production policy-controller.atomist.com/policy-
 ```
 
 [dynamic-admission-control]: https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/
-
