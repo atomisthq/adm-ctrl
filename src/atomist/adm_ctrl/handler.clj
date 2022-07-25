@@ -1,14 +1,14 @@
 (ns atomist.adm-ctrl.handler
-  (:require [compojure.core :refer [defroutes POST GET]]
-            [ring.adapter.jetty :refer [run-jetty]]
-            [ring.middleware.json :refer [wrap-json-response wrap-json-body]]
-            [compojure.route :as route]
-            [atomist.adm-ctrl.core :refer [handle-admission-control-request k8s-client]]
+  (:require [atomist.adm-ctrl.core :refer [handle-admission-control-request k8s-client]]
             [atomist.namespaces :as atm-namespaces]
             [clojure.java.io :as io]
+            [compojure.core :refer [defroutes POST GET]]
+            [compojure.route :as route]
+            [ring.adapter.jetty :refer [run-jetty]]
+            [ring.middleware.json :refer [wrap-json-response wrap-json-body]]
             [taoensso.timbre :as timbre])
-  (:import [java.security KeyStore]
-           [java.io ByteArrayOutputStream FileInputStream]
+  (:import [java.io ByteArrayOutputStream FileInputStream]
+           [java.security KeyStore]
            [java.util Base64])
   (:gen-class))
 
@@ -26,7 +26,7 @@
 (defn ->keystore [f password]
   (-> f
       (FileInputStream.)
-      (as-> in (let [keystore (KeyStore/getInstance "JKS")] 
+      (as-> in (let [keystore (KeyStore/getInstance "JKS")]
                  (.load keystore in (.toCharArray password))
                  keystore))))
 
@@ -48,7 +48,7 @@
                       :key-password key-password
                       :join? (if (false? join?) false true)}))
     (catch Throwable t
-      (timbre/errorf t "failed to start %s - %s" 
+      (timbre/errorf t "failed to start %s - %s"
                      keystore (->> key-password (map (constantly "x")) (apply str))))))
 
 ;; k get secret policy-controller-admission-cert -n atomist -o json | jq -r .data.key | base64 -d > admission.key
@@ -67,7 +67,7 @@
   (def ks (->keystore (io/file "admission.p12") "atomist"))
   (enumeration-seq (.aliases ks))
   (.getCertificate ks "1")
-  
+
   (def server (-main :key-password "atomist" :keystore "admission.p12" :join? false))
   (.stop server))
 

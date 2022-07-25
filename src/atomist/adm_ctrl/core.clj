@@ -1,15 +1,13 @@
 (ns atomist.adm-ctrl.core
-  (:require [clojure.core.async :as async]
-            [cheshire.core :as json]
-            [atomist.k8s :as k8s]
-            [clj-http.client :as client]
+  (:require [atomist.k8s :as k8s]
             [atomist.logging]
             [atomist.namespaces :refer [namespaces-to-enforce]]
-            [clojure.java.io :as io]
+            [cheshire.core :as json]
+            [clj-http.client :as client]
+            [clojure.core.async :as async]
             [clojure.edn]
-            [taoensso.timbre :as timbre
-             :refer [info warnf warn infof]]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [taoensso.timbre :as timbre :refer [info warn infof]]))
 
 (def url (System/getenv "ATOMIST_URL"))
 (def api-key (System/getenv "ATOMIST_APIKEY"))
@@ -67,7 +65,7 @@
 
     (infof "logged pod %s/%s" obj-ns obj-n)))
 
-(defn atomist->tap 
+(defn atomist->tap
   "wait for a pod to be visible - try every 5 seconds for up to a minute"
   [{{obj-ns :namespace obj-n :name} :metadata :as object}]
   (infof "Pod %s/%s needs to be discovered and logged" obj-ns obj-n)
@@ -101,10 +99,10 @@
 ;; empty result set means that the image is not even checked yet - must reject
 (def admission-query
   '[:find
-    ;?status is :image-not-found or :image-not-linked or :no-policies-configured or :success or :failure
-    ;?stream is the string
-    ;?failed-checks ?successful-checks are vectors of entity ids
-    ;?missing-checks is a vector of strings
+    ;; ?status-keyword is :image-not-found or :image-not-linked or :no-policies-configured or :success or :failure
+    ;; ?stream-name is the string
+    ;; ?failed-checks ?successful-checks are vectors of entity ids
+    ;; ?missing-checks is a vector of strings
     ?status-keyword ?stream-name ?failed-checks ?successful-checks ?missing-check-names
 
     :in $ $before-db % ?ctx [?host ?repository ?tag ?stream-name]
@@ -160,7 +158,7 @@
                         :body (pr-str {:query (pr-str admission-query)
                                        :args (conj (parse-image image) (format "%s/%s" cluster-name o-ns))})})
           admitted? (and
-                     (= 200 status) 
+                     (= 200 status)
                      (-> body
                          (clojure.edn/read-string)
                          (admit?)))
@@ -233,4 +231,3 @@
           (create-review uid resource-decision)))
       :else
       (create-review uid {:allowed true}))))
-

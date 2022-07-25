@@ -1,19 +1,16 @@
   ;; watch crds come and go in one namespace
 (ns atomist.k8s
-  (:require [clojure.pprint :refer [pprint]]
+  (:require [cheshire.core :as json]
+            [clj-http.client :as client]
             [clojure.java.io :as io]
             [clojure.java.shell :as sh]
-            [cheshire.core :as json]
-            [clj-http.client :as client]
-            [taoensso.timbre :as timbre
-             :refer [info  warn infof]]
-            [clojure.string :as str]
-            [clojure.core.async :refer [go <! >!] :as async])
+            [clojure.pprint :refer [pprint]]
+            [clojure.string :as str])
   (:import [java.util Base64]))
 
-(defn user-type 
+(defn user-type
   [user]
-  (cond 
+  (cond
     (:exec user) :exec
     (:auth-provider user) :auth-provider
     (:client-key-data user) :client-key-data
@@ -60,11 +57,11 @@
           (assoc :keystore f)
           (assoc :keystore-pass "atomist")))))
 
-(defmethod user->token :default 
-  [user] 
+(defmethod user->token :default
+  [user]
   (throw (ex-info "no strategy for user" user)))
 
-(defn local-kubectl-config 
+(defn local-kubectl-config
   "relies on local kubectl install (kubectl must be in the PATH)"
   []
   (let [{:keys [out]} (sh/sh "kubectl" "config" "view" "--raw" "-o" "json")
@@ -74,7 +71,7 @@
                      first)]
     (merge
       (select-keys context [:name])
-      {:cluster (->> (:clusters config) 
+      {:cluster (->> (:clusters config)
                      (filter #(= (-> context :context :cluster) (:name %)))
                      first
                      :cluster)
@@ -123,7 +120,7 @@
                               :throws false})]
     (case (:status response)
       404 (throw (ex-info (format "Node not found: %s" n) (select-keys response [:status])))
-      401 (throw (ex-info "Node get unauthorized" (select-keys response [:status]))) 
+      401 (throw (ex-info "Node get unauthorized" (select-keys response [:status])))
       200 (:body response)
       (throw (ex-info "Node get unexpected status" (:status response))))))
 
@@ -147,7 +144,7 @@
          "https://kubernetes.docker.internal:6443/api/v1/namespaces")
   ;; k get secret policy-controller-token-5g542 -n atomist -o json | jq -r .data.token | base64 -d > token.txt
   (def token (slurp "token.txt"))
-  ;; TODO 
+  ;; TODO
   ;; curl -k -H "Authorization: Bearer $(< token.txt)" \
   ;;      https://kubernetes.docker.internal:6443/apis/policy-controller.atomist.com/v1/namespaces/production/rules?watch=1
   ;; test with

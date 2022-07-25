@@ -1,12 +1,11 @@
 (ns atomist.namespaces
-  (:require [clojure.pprint :refer [pprint]]
+  (:require [atomist.k8s :refer [build-http-kubectl-client]]
+            [cheshire.core :as json]
+            [clj-http.client :as client]
             [clojure.core.async :as async :refer [>! <! go]]
             [clojure.java.io :as io]
-            [cheshire.core :as json]
-            [atomist.k8s :refer [build-http-kubectl-client]]
-            [clj-http.client :as client]
-            [taoensso.timbre :as timbre
-             :refer [info  warn infof]]))
+            [clojure.pprint :refer [pprint]]
+            [taoensso.timbre :as timbre :refer [info  warn infof]]))
 
 (def namespaces-to-enforce (atom #{}))
 
@@ -16,7 +15,7 @@
 (defn add-namespace [s]
   (swap! namespaces-to-enforce (fn [coll] (into #{} (conj coll s)))))
 
-(defn namespace-callback 
+(defn namespace-callback
   "process kubernetes watch events for namespaces"
   [d]
   (let [{:keys [type object]} d]
@@ -62,7 +61,7 @@
       (warn "process-watcher-stream failed to open stream")
       [:error ex])))
 
-(defn- get-namespaces 
+(defn- get-namespaces
   "request list of namespaces or possibly a watch stream (depends on the opts)"
   [server token opts]
   (let [url (format "%s/api/v1/namespaces" server) ]

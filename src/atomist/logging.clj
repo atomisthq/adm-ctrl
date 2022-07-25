@@ -1,8 +1,7 @@
 (ns atomist.logging
-  (:require [taoensso.timbre :as timbre
-             :refer [merge-config! stacktrace]]
+  (:require [clojure.string :as str]
             [taoensso.encore :as enc]
-            [clojure.string :as str]))
+            [taoensso.timbre :as timbre :refer [merge-config! stacktrace]]))
 
 (defn output-fn
   ([data] ; For partials
