@@ -20,7 +20,7 @@ metadata:
     app.kubernetes.io/part-of: policy-controller
   name: policy-controller
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: policy-controller
@@ -36,7 +36,7 @@ spec:
         app.kubernetes.io/part-of: policy-controller
     spec:
       containers:
-        - image: atomist/adm-ctrl
+        - image: vonwig/adm-ctrl
           name: controller
           ports:
             - containerPort: 8443
@@ -96,7 +96,7 @@ spec:
               cpu: 150m
               memory: 512Mi
           securityContext:
-            runAsNonRoot: true
+            runAsNonRoot: false
             readOnlyRootFilesystem: true
       volumes:
         - name: jks

@@ -1,6 +1,6 @@
-FROM babashka/babashka:0.6.5@sha256:66abc2ad36c33bd82537b11e341629a0ead7c119f301c1b8c7865cfc45e61ddd AS bb
+FROM babashka/babashka:0.8.157@sha256:9dcba7fc59cb24454141a5c8631a53942d8226a3c5ff8ce07b0e2b70b7891d0a AS bb
 
-FROM openjdk:11-jre-slim-buster@sha256:ba9d6169236009735981744f3b11b186467a0f636b0c1e0ee162620637d60577
+FROM eclipse-temurin:19.0.2_7-jdk-jammy@sha256:f4bfb5d45d098b39cecaba9d39cdd1c9200a98787dc97ec4d6194fc2fbc6c427
 
 RUN apt-get update && \
     apt-get -y --no-install-recommends install openssl curl && \

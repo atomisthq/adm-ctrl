@@ -10,3 +10,5 @@
 /.clj-kondo/
 /resources/k8s/overlays/demo/endpoint.env
 /resources/k8s/overlays/docker-desktop/endpoint.env
+/app.jar
+/resources/k8s/overlays/slim-workspace/

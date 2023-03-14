@@ -10,7 +10,7 @@ resources:
 commonLabels:
   app.kubernetes.io/name: atomist
 images:
-- name: atomist/adm-ctrl
-  newTag: v3
+- name: vonwig/adm-ctrl
+  newTag: latest
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
