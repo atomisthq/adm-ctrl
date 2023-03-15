@@ -1,7 +1,7 @@
 # docker buildx create --name=wooden-pickle
-# docker buildx build --push -t vonwig/adm-ctrl:latest --builder=wooden-pickle --platform=linux/arm64 .
+# docker buildx build --push -t vonwig/adm-ctrl:latest --builder=wooden-pickle --platform=linux/arm64,linux/amd64 .
 
-FROM clojure:tools-deps-jammy@sha256:7cb4b2ca76cd184fb05c1aa0aefd7e10331261da60969fc9a6dc87da8b375832 AS build
+FROM --platform=linux/arm64 clojure:tools-deps-jammy@sha256:7cb4b2ca76cd184fb05c1aa0aefd7e10331261da60969fc9a6dc87da8b375832 AS build
 
 WORKDIR /app
 

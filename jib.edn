@@ -1,8 +1,0 @@
-{:main atomist.adm-ctrl.handler
- :aot true
- :target-image {:type :registry
-                :image-name "atomist/adm-ctrl"
-                :tagger {:fn jibbit.tagger/tag}
-                :authorizer {:fn jibbit.creds/load-edn
-                             :args {:local ".creds.edn"}}}}
-
