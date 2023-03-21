@@ -9,6 +9,8 @@
             [clojure.string :as str]
             [taoensso.timbre :as timbre :refer [info warn infof]]))
 
+(set! *warn-on-reflection* true)
+
 (def url (System/getenv "ATOMIST_URL"))
 (def api-key (System/getenv "ATOMIST_APIKEY"))
 (def cluster-name (System/getenv "CLUSTER_NAME"))

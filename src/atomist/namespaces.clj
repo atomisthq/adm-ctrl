@@ -1,12 +1,17 @@
 (ns atomist.namespaces
-  (:require [atomist.k8s :refer [build-http-kubectl-client]]
-            [cheshire.core :as json]
-            [clj-http.lite.client :as client]
-            [clojure.core.async :as async :refer [>! <! go]]
-            [clojure.java.io :as io]
-            [clojure.pprint :refer [pprint]]
-            [taoensso.timbre :as timbre :refer [info  warn infof]]
-            [atomist.json :refer [json-response]]))
+  (:require
+   [atomist.json :refer [json-response]]
+   [atomist.k8s :refer [build-http-kubectl-client]]
+   [cheshire.core :as json]
+   [clj-http.lite.client :as client]
+   [clojure.core.async :as async :refer [<! >! go]]
+   [clojure.java.io :as io]
+   [clojure.pprint :refer [pprint]]
+   [taoensso.timbre :as timbre :refer [info infof warn]]) 
+  (:import
+   [java.io InputStream]))
+
+(set! *warn-on-reflection* true)
 
 (def namespaces-to-enforce (atom #{}))
 
@@ -55,7 +60,7 @@
                 (namespace-callback payload)
                 (recur (rest events)))
               (do
-                (.close in)
+                (.close ^InputStream in)
                 [:closed])))))
       (throw (ex-info (format "status %s in watcher response" status) response)))
     (catch Throwable ex

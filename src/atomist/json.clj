@@ -1,6 +1,8 @@
 (ns atomist.json
   (:require [cheshire.core :as json]))
 
+(set! *warn-on-reflection* true)
+
 (defn json-response [{:keys [body] :as response}]
   (assoc response
          :body (cond

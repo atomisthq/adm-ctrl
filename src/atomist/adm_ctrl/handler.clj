@@ -8,6 +8,8 @@
             [taoensso.timbre :as timbre])
   (:gen-class))
 
+(set! *warn-on-reflection* true)
+
 (defroutes app
   (GET "/health" _ (constantly {:status 200 :body "ok"}))
   (->

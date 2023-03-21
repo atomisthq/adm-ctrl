@@ -3,6 +3,8 @@
             [taoensso.encore :as enc]
             [taoensso.timbre :as timbre :refer [merge-config! stacktrace]]))
 
+(set! *warn-on-reflection* true)
+
 (defn output-fn
   ([data] ; For partials
    (let [{:keys [level ?err #_vargs msg_ ?ns-str ?file hostname_

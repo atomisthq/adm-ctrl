@@ -1,5 +1,8 @@
-## Steps
-```bash $ git clone -b custzero git@github.com:atomisthq/adm-ctrl ```
+## Install Steps
+
+```bash
+$ git clone -b custzero git@github.com:atomisthq/adm-ctrl 
+```
 
 ### Create a self-signed certificate and store it on the cluster (as two secrets in the atomist namespace)
 
@@ -13,6 +16,8 @@ Choose a cluster name and set an environment variable `${CLUSTER_NAME}`.
 
 ### Create endpoint secret
 
+Use whatever secret management tools your team is already using. If you are creating the secret by hand, then you can create an `endpoint.env` file and install it using the command below.
+
 Create the file `resources/k8s/overlays/${CLUSTER_NAME}/endpoint.env` and provide details from the [dso.docker.com](http://dso.atomist.com) integration page.
 
 ```bash
@@ -25,12 +30,12 @@ team=xxxxx
 4. kubectl create secret generic endpoint -n atomist --from-env-file "resources/k8s/overlays/${CLUSTER_NAME}/endpoint.env"
 ```
 
-### Start up the controller (will not be used yet as there’s no validation webhook configuration)
+### Start up the controller (controller will not receive requests until the validation webhook is configured)
 
 Edit `resources/k8s/overlays/${CLUSTER_NAME}/kustomization.yaml` and update the cluster name on [line 12](https://github.com/atomisthq/adm-ctrl/blob/custzero/resources/templates/kustomization.yaml#L12).  Also change the `newTag` image attribute to be `latest`([line 15](https://github.com/atomisthq/adm-ctrl/blob/custzero/resources/templates/kustomization.yaml#L15))
 
 ```bash
-5. kubectl create configmap nginxconfigmap -n atomist --from-file=nginx/nginx.conf
+5. kubectl create configmap nginxconfigmap -n atomist --from-file=resources/nginx/nginx.conf
 6. kubectl kustomize "resources/k8s/overlays/${CLUSTER_NAME}" | kubectl apply -f -
 ```
 
@@ -52,3 +57,22 @@ kubectl annotate namespace production policy-controller.atomist.com/policy=enabl
 # disable policy on a namespace (eg production)
 kubectl annotate namespace production policy-controller.atomist.com/policy-
 ```
+
+## Certificate Management
+
+A self-signed certificate is created in the first instruction above. This certificate will not expire for 100 years.  However, an operator can generate new certificates or plug in a different tool for certificate management.
+
+To regenerate the certificates, use the following procedure.
+
+```
+kubectl delete secret policy-controller-admission-cert -n atomist
+kubectl apply -f resources/k8s/jobs/create.yaml
+kubectl apply -f resources/k8s/jobs/patch.yaml
+```
+
+## Images used
+
+* [Certificate Creation/Patch jobs](https://hub.docker.com/layers/jettech/kube-webhook-certgen/v1.5.2/images/sha256-d22f8b5ed10fb78d76a21130605cb18b9fc08918d3b09a70b4bf312ba6c750de?context=explore)
+    * most recent tag is already 2 years old
+* [Controller](https://hub.docker.com/repository/docker/vonwig/adm-ctrl/general)
+

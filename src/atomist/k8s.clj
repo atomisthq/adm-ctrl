@@ -7,7 +7,9 @@
             [clojure.pprint :refer [pprint]]
             [clojure.string :as str]
             [atomist.json :refer [json-response]])
-  (:import [java.util Base64]))
+  (:import [java.util Base64 Base64$Decoder]))
+
+(set! *warn-on-reflection* true)
 
 (defn user-type
   [user]
@@ -46,12 +48,11 @@
 (defmethod user->token :client-key-data [user]
   (fn [m]
     (let [f "dd.jks"]
-      (spit "dd.crt" (str
-                      (String. (.decode (Base64/getDecoder) (:client-certificate-data user)))
+      (spit "dd.crt" (str (.decode ^Base64$Decoder (Base64/getDecoder) ^String (:client-certificate-data user)) 
                       #_(String. (.decode (Base64/getDecoder) (-> m :cluster :certificate-authority-data)))))
-      (spit "ca.crt" (String. (.decode (Base64/getDecoder) (-> m :cluster :certificate-authority-data))))
+      (spit "ca.crt" (str (.decode ^Base64$Decoder (Base64/getDecoder) ^String (str (-> m :cluster :certificate-authority-data)))))
 
-      (spit "dd.key" (String. (.decode (Base64/getDecoder) (:client-key-data user))))
+      (spit "dd.key" (str (.decode ^Base64$Decoder (Base64/getDecoder) ^String (:client-key-data user))))
       (println (sh/sh "openssl" "pkcs12" "-export" "-inkey" "dd.key" "-in" "dd.crt" "-out" f "-password" "pass:atomist"))
       (-> m
           (assoc :keystore f)
@@ -107,7 +108,7 @@
                    :as :json
                    :insecure? true
                    :throws-exception false})]
-    (case (:status response)
+    (condp = (:status response)
       404 (throw (ex-info (format "Pod not found: %s/%s" ns n) (select-keys response [:status])))
       401 (throw (ex-info "Pod get unauthorized" (select-keys response [:status])))
       200 (:body response)
@@ -120,7 +121,7 @@
                    :insecure? true
                    :as :json
                    :throws-exception false})]
-    (case (:status response)
+    (condp = (:status response)
       404 (throw (ex-info (format "Node not found: %s" n) (select-keys response [:status])))
       401 (throw (ex-info "Node get unauthorized" (select-keys response [:status])))
       200 (:body response)
