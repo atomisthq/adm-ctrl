@@ -1,11 +1,12 @@
   ;; watch crds come and go in one namespace
 (ns atomist.k8s
   (:require [cheshire.core :as json]
-            [clj-http.client :as client]
+            [clj-http.lite.client :as client]
             [clojure.java.io :as io]
             [clojure.java.shell :as sh]
             [clojure.pprint :refer [pprint]]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [atomist.json :refer [json-response]])
   (:import [java.util Base64]))
 
 (defn user-type
@@ -47,8 +48,7 @@
     (let [f "dd.jks"]
       (spit "dd.crt" (str
                       (String. (.decode (Base64/getDecoder) (:client-certificate-data user)))
-                      #_(String. (.decode (Base64/getDecoder) (-> m :cluster :certificate-authority-data)))
-                      ))
+                      #_(String. (.decode (Base64/getDecoder) (-> m :cluster :certificate-authority-data)))))
       (spit "ca.crt" (String. (.decode (Base64/getDecoder) (-> m :cluster :certificate-authority-data))))
 
       (spit "dd.key" (String. (.decode (Base64/getDecoder) (:client-key-data user))))
@@ -70,15 +70,15 @@
                      (filter #(= (:current-context config) (:name %)))
                      first)]
     (merge
-      (select-keys context [:name])
-      {:cluster (->> (:clusters config)
-                     (filter #(= (-> context :context :cluster) (:name %)))
-                     first
-                     :cluster)
-       :user (->> (:users config)
-                  (filter #(= (-> context :context :user) (:name %)))
-                  first
-                  :user)})))
+     (select-keys context [:name])
+     {:cluster (->> (:clusters config)
+                    (filter #(= (-> context :context :cluster) (:name %)))
+                    first
+                    :cluster)
+      :user (->> (:users config)
+                 (filter #(= (-> context :context :user) (:name %)))
+                 first
+                 :user)})))
 
 (defn local-http-client [{{:keys [server certificate-authority-data]} :cluster
                           user :user
@@ -101,11 +101,12 @@
    :insecure? true})
 
 (defn http-get-pod [{:keys [server token]} ns n]
-  (let [response (client/get (format "%s/api/v1/namespaces/%s/pods/%s" server ns n)
-                             {:headers {"Authorization" (format "Bearer %s" token)}
-                              :as :json
-                              :insecure? true
-                              :throws false})]
+  (let [response ((comp json-response client/get)
+                  (format "%s/api/v1/namespaces/%s/pods/%s" server ns n)
+                  {:headers {"Authorization" (format "Bearer %s" token)}
+                   :as :json
+                   :insecure? true
+                   :throws-exception false})]
     (case (:status response)
       404 (throw (ex-info (format "Pod not found: %s/%s" ns n) (select-keys response [:status])))
       401 (throw (ex-info "Pod get unauthorized" (select-keys response [:status])))
@@ -113,17 +114,17 @@
       (throw (ex-info "Pod get unexpected status" (:status response))))))
 
 (defn http-get-node [{:keys [server token]} n]
-  (let [response (client/get (format "%s/api/v1/nodes/%s" server n)
-                             {:headers {"Authorization" (format "Bearer %s" token)}
-                              :insecure? true
-                              :as :json
-                              :throws false})]
+  (let [response ((comp json-response client/get)
+                  (format "%s/api/v1/nodes/%s" server n)
+                  {:headers {"Authorization" (format "Bearer %s" token)}
+                   :insecure? true
+                   :as :json
+                   :throws-exception false})]
     (case (:status response)
       404 (throw (ex-info (format "Node not found: %s" n) (select-keys response [:status])))
       401 (throw (ex-info "Node get unauthorized" (select-keys response [:status])))
       200 (:body response)
       (throw (ex-info "Node get unexpected status" (:status response))))))
-
 
 (defn get-pod [k8s ns n]
   (case (:type k8s)

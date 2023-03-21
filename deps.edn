@@ -3,13 +3,10 @@
  {org.clojure/clojure {:mvn/version "1.11.1"}
   org.clojure/core.async {:mvn/version "1.6.673"}
   compojure/compojure {:mvn/version "1.7.0"}
-  ring/ring-jetty-adapter {:mvn/version "1.9.6"}
   ring/ring-json {:mvn/version "0.5.1"}
-  io.kubernetes/client-java {:mvn/version "18.0.0"}
-  clj-http/clj-http {:mvn/version "3.12.3"}
-        ;; need one logger impl for k8s-api and jetty
+  http-kit/http-kit {:mvn/version "2.3.0"}
+  org.clj-commons/clj-http-lite {:mvn/version "1.0.13"}
   org.slf4j/slf4j-simple {:mvn/version "2.0.6"}
-        ;; timbre
   com.taoensso/timbre {:mvn/version "6.1.0"}}
  :aliases
  {:build

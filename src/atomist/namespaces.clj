@@ -1,11 +1,12 @@
 (ns atomist.namespaces
   (:require [atomist.k8s :refer [build-http-kubectl-client]]
             [cheshire.core :as json]
-            [clj-http.client :as client]
+            [clj-http.lite.client :as client]
             [clojure.core.async :as async :refer [>! <! go]]
             [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
-            [taoensso.timbre :as timbre :refer [info  warn infof]]))
+            [taoensso.timbre :as timbre :refer [info  warn infof]]
+            [atomist.json :refer [json-response]]))
 
 (def namespaces-to-enforce (atom #{}))
 
@@ -64,10 +65,14 @@
 (defn- get-namespaces
   "request list of namespaces or possibly a watch stream (depends on the opts)"
   [server token opts]
-  (let [url (format "%s/api/v1/namespaces" server) ]
-    (client/get url (merge {:insecure? true
-                            :throw-exceptions false
-                            :headers {"Authorization" (format "Bearer %s" token)}} opts))))
+  (let [url (format "%s/api/v1/namespaces" server)]
+    ((if (= :json (:as opts))
+       (comp json-response client/get)
+       client/get)
+     url
+     (merge {:insecure? true
+             :throw-exceptions false
+             :headers {"Authorization" (format "Bearer %s" token)}} opts))))
 
 (defn start-watching-namespaces
   "watch this open stream in a thread

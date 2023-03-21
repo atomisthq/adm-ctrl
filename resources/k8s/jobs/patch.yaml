@@ -22,7 +22,6 @@ spec:
             - --namespace=$(POD_NAMESPACE)
             - --patch-mutating=false
             - --secret-name=policy-controller-admission-cert
-            - --patch-failure-policy=Fail
           env:
             - name: POD_NAMESPACE
               valueFrom:

@@ -3,7 +3,7 @@
             [atomist.logging]
             [atomist.namespaces :refer [namespaces-to-enforce]]
             [cheshire.core :as json]
-            [clj-http.client :as client]
+            [clj-http.lite.client :as client]
             [clojure.core.async :as async]
             [clojure.edn]
             [clojure.string :as str]
@@ -154,7 +154,7 @@
                        {:headers {"Authorization" (format "Bearer %s" api-key)
                                   "Accept-Encoding" "gzip"
                                   "Content-Type" "application/edn"}
-                        :throw false
+                        :throw-exceptions false
                         :body (pr-str {:query (pr-str admission-query)
                                        :args (conj (parse-image image) (format "%s/%s" cluster-name o-ns))})})
           admitted? (and
