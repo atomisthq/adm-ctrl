@@ -4,7 +4,7 @@
 #syntax=docker/dockerfile:1.4
 FROM babashka/babashka:1.2.174@sha256:3f27de35b84d524654ed2e73d8c4fd998a15a7f5d364931c2390059922195f88 AS bb
 
-FROM eclipse-temurin:19.0.2_7-jre-jammy@sha256:2ef86f03626f0df508565a24faf251d095a8c0e3a4ece31b21c71798f465a29f
+FROM eclipse-temurin:19.0.2_7-jre-jammy@sha256:01835b7650faba7bbd6187d0a1c09fa963d06b8fbac5e2d4b3f00731e69c865c
 
 RUN <<EOF
 apt-get update
