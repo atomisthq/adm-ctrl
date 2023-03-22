@@ -20,7 +20,7 @@ metadata:
     app.kubernetes.io/part-of: policy-controller
   name: policy-controller
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: policy-controller
@@ -36,10 +36,45 @@ spec:
         app.kubernetes.io/part-of: policy-controller
     spec:
       containers:
-        - image: atomist/adm-ctrl
-          name: controller
+        - image: nginx:mainline-alpine-slim
+          name: nginx
           ports:
             - containerPort: 8443
+          volumeMounts:
+            - mountPath: /etc/nginx/ssl
+              name: secret-volume
+            - mountPath: /etc/nginx/conf.d
+              name: configmap-volume 
+          livenessProbe:
+            httpGet:
+              port: 8443
+              path: /health
+              scheme: HTTPS
+            failureThreshold: 2
+            initialDelaySeconds: 15
+            timeoutSeconds: 15
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              port: 8443
+              path: /health
+              scheme: HTTPS
+            failureThreshold: 2
+            initialDelaySeconds: 15
+            timeoutSeconds: 15
+            periodSeconds: 30
+          startupProbe:
+            httpGet:
+              port: 8443
+              path: /health
+              scheme: HTTPS
+            failureThreshold: 30
+            periodSeconds: 10
+
+        - image: vonwig/adm-ctrl
+          name: controller
+          ports:
+            - containerPort: 3000
           env:
             - name: ATOMIST_APIKEY
               valueFrom:
@@ -58,36 +93,7 @@ spec:
                 secretKeyRef:
                   name: endpoint
                   key: team
-          volumeMounts:
-            - name: jks
-              mountPath: "/jks"
-              readOnly: true
           imagePullPolicy: Always
-          livenessProbe:
-            httpGet:
-              port: 8443
-              path: /health
-              scheme: HTTPS
-            failureThreshold: 2
-            initialDelaySeconds: 180
-            timeoutSeconds: 15
-            periodSeconds: 30
-          readinessProbe:
-            httpGet:
-              port: 8443
-              path: /health
-              scheme: HTTPS
-            failureThreshold: 2
-            initialDelaySeconds: 180
-            timeoutSeconds: 15
-            periodSeconds: 30
-          startupProbe:
-            httpGet:
-              port: 8443
-              path: /health
-              scheme: HTTPS
-            failureThreshold: 30
-            periodSeconds: 10
           resources:
             limits:
               cpu: 150m
@@ -96,10 +102,13 @@ spec:
               cpu: 150m
               memory: 512Mi
           securityContext:
-            runAsNonRoot: true
+            runAsNonRoot: false
             readOnlyRootFilesystem: true
       volumes:
-        - name: jks
+        - name: secret-volume
           secret:
-            secretName: keystore
+            secretName: policy-controller-admission-cert
+        - name: configmap-volume
+          configMap:
+            name: nginxconfigmap
       serviceAccountName: policy-controller

@@ -22,7 +22,7 @@ rules:
     resources: ["deployments", "daemonsets", "jobs", "statefulsets", "namespaces"]
     verbs: ["list", "watch"]
   - apiGroups: [""]
-    resources: ["pods", "nodes"]
+    resources: ["pods", "nodes", "pods/ephemeralcontainers"]
     verbs: ["get"]
   - apiGroups: ["apiextensions.k8s.io"]
     verbs: ["list", "get"]

@@ -1,7 +1,0 @@
-{:main atomist.adm-ctrl.handler
- :target-image {:type :docker
-                :image-name "atomist/adm-ctrl"
-                :tagger {:fn jibbit.tagger/tag}
-                :authorizer {:fn jibbit.creds/load-edn
-                             :args {:local ".creds.edn"}}}}
-

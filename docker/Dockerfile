@@ -1,13 +1,17 @@
-FROM babashka/babashka:0.6.5@sha256:66abc2ad36c33bd82537b11e341629a0ead7c119f301c1b8c7865cfc45e61ddd AS bb
+# docker buildx create --name=wooden-pickle
+# docker buildx build --push -t vonwig/pkcs-create --builder=wooden-pickle -f docker/Dockerfile .
 
-FROM openjdk:11-jre-slim-buster@sha256:ba9d6169236009735981744f3b11b186467a0f636b0c1e0ee162620637d60577
+#syntax=docker/dockerfile:1.4
+FROM babashka/babashka:1.2.174 AS bb
 
-RUN apt-get update && \
-    apt-get -y --no-install-recommends install openssl curl && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-# RUN apk add --update openssl && \
-    # rm -rf /var/cache/apk/*
+FROM eclipse-temurin:19.0.2_7-jre-jammy@sha256:2ef86f03626f0df508565a24faf251d095a8c0e3a4ece31b21c71798f465a29f
+
+RUN <<EOF
+apt-get update
+apt-get -y --no-install-recommends install openssl curl
+apt-get clean
+rm -rf /var/lib/apt/lists/*
+EOF
 
 USER nobody
 WORKDIR /app

@@ -1,10 +1,5 @@
 resources:
   - ../../controller
-secretGenerator:
-- name: endpoint
-  behavior: merge
-  envs:
-  - endpoint.env
 patchesJson6902:
 - target:
     group: apps
@@ -16,5 +11,5 @@ patchesJson6902:
       path: /spec/template/spec/containers/0/env/2/value
       value: "sandbox"
 images:
-- name: atomist/adm-ctrl
+- name: vonwig/adm-ctrl
   newTag: v3

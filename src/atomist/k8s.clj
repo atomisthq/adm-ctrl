@@ -1,12 +1,15 @@
   ;; watch crds come and go in one namespace
 (ns atomist.k8s
   (:require [cheshire.core :as json]
-            [clj-http.client :as client]
+            [clj-http.lite.client :as client]
             [clojure.java.io :as io]
             [clojure.java.shell :as sh]
             [clojure.pprint :refer [pprint]]
-            [clojure.string :as str])
-  (:import [java.util Base64]))
+            [clojure.string :as str]
+            [atomist.json :refer [json-response]])
+  (:import [java.util Base64 Base64$Decoder]))
+
+(set! *warn-on-reflection* true)
 
 (defn user-type
   [user]
@@ -45,13 +48,11 @@
 (defmethod user->token :client-key-data [user]
   (fn [m]
     (let [f "dd.jks"]
-      (spit "dd.crt" (str
-                      (String. (.decode (Base64/getDecoder) (:client-certificate-data user)))
-                      #_(String. (.decode (Base64/getDecoder) (-> m :cluster :certificate-authority-data)))
-                      ))
-      (spit "ca.crt" (String. (.decode (Base64/getDecoder) (-> m :cluster :certificate-authority-data))))
+      (spit "dd.crt" (str (.decode ^Base64$Decoder (Base64/getDecoder) ^String (:client-certificate-data user)) 
+                      #_(String. (.decode (Base64/getDecoder) (-> m :cluster :certificate-authority-data)))))
+      (spit "ca.crt" (str (.decode ^Base64$Decoder (Base64/getDecoder) ^String (str (-> m :cluster :certificate-authority-data)))))
 
-      (spit "dd.key" (String. (.decode (Base64/getDecoder) (:client-key-data user))))
+      (spit "dd.key" (str (.decode ^Base64$Decoder (Base64/getDecoder) ^String (:client-key-data user))))
       (println (sh/sh "openssl" "pkcs12" "-export" "-inkey" "dd.key" "-in" "dd.crt" "-out" f "-password" "pass:atomist"))
       (-> m
           (assoc :keystore f)
@@ -70,15 +71,15 @@
                      (filter #(= (:current-context config) (:name %)))
                      first)]
     (merge
-      (select-keys context [:name])
-      {:cluster (->> (:clusters config)
-                     (filter #(= (-> context :context :cluster) (:name %)))
-                     first
-                     :cluster)
-       :user (->> (:users config)
-                  (filter #(= (-> context :context :user) (:name %)))
-                  first
-                  :user)})))
+     (select-keys context [:name])
+     {:cluster (->> (:clusters config)
+                    (filter #(= (-> context :context :cluster) (:name %)))
+                    first
+                    :cluster)
+      :user (->> (:users config)
+                 (filter #(= (-> context :context :user) (:name %)))
+                 first
+                 :user)})))
 
 (defn local-http-client [{{:keys [server certificate-authority-data]} :cluster
                           user :user
@@ -101,29 +102,30 @@
    :insecure? true})
 
 (defn http-get-pod [{:keys [server token]} ns n]
-  (let [response (client/get (format "%s/api/v1/namespaces/%s/pods/%s" server ns n)
-                             {:headers {"Authorization" (format "Bearer %s" token)}
-                              :as :json
-                              :insecure? true
-                              :throws false})]
-    (case (:status response)
+  (let [response ((comp json-response client/get)
+                  (format "%s/api/v1/namespaces/%s/pods/%s" server ns n)
+                  {:headers {"Authorization" (format "Bearer %s" token)}
+                   :as :json
+                   :insecure? true
+                   :throws-exception false})]
+    (condp = (:status response)
       404 (throw (ex-info (format "Pod not found: %s/%s" ns n) (select-keys response [:status])))
       401 (throw (ex-info "Pod get unauthorized" (select-keys response [:status])))
       200 (:body response)
       (throw (ex-info "Pod get unexpected status" (:status response))))))
 
 (defn http-get-node [{:keys [server token]} n]
-  (let [response (client/get (format "%s/api/v1/nodes/%s" server n)
-                             {:headers {"Authorization" (format "Bearer %s" token)}
-                              :insecure? true
-                              :as :json
-                              :throws false})]
-    (case (:status response)
+  (let [response ((comp json-response client/get)
+                  (format "%s/api/v1/nodes/%s" server n)
+                  {:headers {"Authorization" (format "Bearer %s" token)}
+                   :insecure? true
+                   :as :json
+                   :throws-exception false})]
+    (condp = (:status response)
       404 (throw (ex-info (format "Node not found: %s" n) (select-keys response [:status])))
       401 (throw (ex-info "Node get unauthorized" (select-keys response [:status])))
       200 (:body response)
       (throw (ex-info "Node get unexpected status" (:status response))))))
-
 
 (defn get-pod [k8s ns n]
   (case (:type k8s)

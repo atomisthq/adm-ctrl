@@ -1,14 +1,16 @@
 {:paths ["src"]
- :deps {org.clojure/clojure {:mvn/version "1.10.3"}
-        org.clojure/core.async {:mvn/version "1.5.648"}
-        compojure/compojure {:mvn/version "1.6.2"}
-        ring/ring-jetty-adapter {:mvn/version "1.9.4"}
-        ring/ring-json {:mvn/version "0.5.1"}
-        io.kubernetes/client-java {:mvn/version "10.0.0"}
-        clj-http/clj-http {:mvn/version "3.12.3"}
-        ;; need one logger impl for k8s-api and jetty
-        org.slf4j/slf4j-simple {:mvn/version "1.7.21"}
-        ;; timbre
-        com.taoensso/timbre {:mvn/version "5.1.2"}}
- :aliases {:jetty
-           {:main-opts ["-m" "atomist.adm-ctrl.handler"]}}}
+ :deps
+ {org.clojure/clojure {:mvn/version "1.11.1"}
+  org.clojure/core.async {:mvn/version "1.6.673"}
+  compojure/compojure {:mvn/version "1.7.0"}
+  ring/ring-json {:mvn/version "0.5.1"}
+  http-kit/http-kit {:mvn/version "2.3.0"}
+  org.clj-commons/clj-http-lite {:mvn/version "1.0.13"}
+  org.slf4j/slf4j-simple {:mvn/version "2.0.6"}
+  com.taoensso/timbre {:mvn/version "6.1.0"}}
+ :aliases
+ {:build
+  {:ns-default build
+   :deps {io.github.clojure/tools.build {:git/tag "v0.9.4" :git/sha "76b78fe"}}}
+  :jetty
+  {:main-opts ["-m" "atomist.adm-ctrl.handler"]}}}

@@ -3,22 +3,21 @@
             [atomist.logging]
             [atomist.namespaces :refer [namespaces-to-enforce]]
             [cheshire.core :as json]
-            [clj-http.client :as client]
+            [clj-http.lite.client :as client]
             [clojure.core.async :as async]
             [clojure.edn]
             [clojure.string :as str]
-            [taoensso.timbre :as timbre :refer [info warn infof]]))
+            [taoensso.timbre :as timbre :refer [info warn infof error]]))
 
-(def url (System/getenv "ATOMIST_URL"))
-(def api-key (System/getenv "ATOMIST_APIKEY"))
-(def cluster-name (System/getenv "CLUSTER_NAME"))
-(def workspace-id (System/getenv "ATOMIST_WORKSPACE"))
+(set! *warn-on-reflection* true)
 
 (defn atomist-call [req]
-  (let [response (client/post url {:headers {"Authorization" (format "Bearer %s" api-key)}
-                                   :content-type :json
-                                   :throw-exceptions false
-                                   :body (json/generate-string req)})]
+  (let [response (client/post
+                  (System/getenv "ATOMIST_URL")
+                  {:headers {"Authorization" (format "Bearer %s" (System/getenv "ATOMIST_APIKEY"))}
+                   :content-type :json
+                   :throw-exceptions false
+                   :body (json/generate-string req)})]
     (info (format "status %s, %s" (:status response) (-> response :body)))
     response))
 
@@ -57,9 +56,9 @@
         (atomist-call {:image {:url image
                                :containerID container-id
                                :pod obj-n}
-                       :environment {:name (if (str/starts-with? cluster-name "atomist")
+                       :environment {:name (if (str/starts-with? (System/getenv "CLUSTER_NAME") "atomist")
                                              obj-ns
-                                             (str cluster-name "/" obj-ns))}
+                                             (str (System/getenv "CLUSTER_NAME") "/" obj-ns))}
                        :platform {:os operatingSystem
                                   :architecture architecture}})))
 
@@ -93,7 +92,6 @@
               {:uid uid})})
 
 (def create-review (comp (fn [review] (infof "review: %s" review) review) admission-review))
-
 
 ;; has to be :check.conclusion/ready
 ;; empty result set means that the image is not even checked yet - must reject
@@ -147,16 +145,16 @@
     returns channel - channel will provide one value and then close (value true if image should be admitted)"
   [image o-ns]
   (async/go
-    (infof "check %s in %s using query %s" image workspace-id (apply str (take 40 (str admission-query))))
+    (infof "check %s in %s using query %s" image (System/getenv "ATOMIST_WORKSPACE") (apply str (take 40 (str admission-query))))
     (let [{:keys [status body headers]}
           (client/post (format "https://%s/datalog/team/%s"
-                               "api.atomist.com" workspace-id)
-                       {:headers {"Authorization" (format "Bearer %s" api-key)
+                               "api.atomist.com" (System/getenv "ATOMIST_WORKSPACE"))
+                       {:headers {"Authorization" (format "Bearer %s" (System/getenv "ATOMIST_APIKEY"))
                                   "Accept-Encoding" "gzip"
                                   "Content-Type" "application/edn"}
-                        :throw false
+                        :throw-exceptions false
                         :body (pr-str {:query (pr-str admission-query)
-                                       :args (conj (parse-image image) (format "%s/%s" cluster-name o-ns))})})
+                                       :args (conj (parse-image image) (format "%s/%s" (System/getenv "CLUSTER_NAME") o-ns))})})
           admitted? (and
                      (= 200 status)
                      (-> body
