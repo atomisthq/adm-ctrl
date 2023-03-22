@@ -12,7 +12,7 @@ COPY ./src ./src
 
 RUN clj -T:build uber
 
-FROM ghcr.io/graalvm/graalvm-ce:22.3.0 AS native
+FROM ghcr.io/graalvm/graalvm-ce:22.3.0@sha256:29cdd9790c3e1bc63d6eda505f0df786c680fae074f8e169202034f31329a669 AS native
 WORKDIR /native-build
 RUN gu install native-image
 
