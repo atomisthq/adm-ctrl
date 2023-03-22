@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: create
-          image: jettech/kube-webhook-certgen:v1.5.2
+          image: k8s.gcr.io/ingress-nginx/kube-webhook-certgen:v1.1.1
           imagePullPolicy: IfNotPresent
           args:
             - create

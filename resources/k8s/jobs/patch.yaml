@@ -14,14 +14,16 @@ spec:
     spec:
       containers:
         - name: create
-          image: jettech/kube-webhook-certgen:v1.5.2
+          image: k8s.gcr.io/ingress-nginx/kube-webhook-certgen:v1.1.1
           imagePullPolicy: IfNotPresent
           args:
             - patch
             - --webhook-name=policy-controller.atomist.com
             - --namespace=$(POD_NAMESPACE)
             - --patch-mutating=false
+            - --patch-validating=true
             - --secret-name=policy-controller-admission-cert
+            - --patch-failure-policy=Ignore
           env:
             - name: POD_NAMESPACE
               valueFrom:
