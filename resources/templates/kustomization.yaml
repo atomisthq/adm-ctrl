@@ -12,4 +12,4 @@ patchesJson6902:
       value: "sandbox"
 images:
 - name: vonwig/adm-ctrl
-  newTag: v3
+  newTag: v0.0.1

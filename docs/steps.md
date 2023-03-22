@@ -1,7 +1,7 @@
 ## Install Steps
 
 ```bash
-$ git clone -b custzero git@github.com:atomisthq/adm-ctrl 
+$ git clone git@github.com:atomisthq/adm-ctrl 
 ```
 
 ### Create a self-signed certificate and store it on the cluster (as two secrets in the atomist namespace)
@@ -32,7 +32,7 @@ team=xxxxx
 
 ### Start up the controller (controller will not receive requests until the validation webhook is configured)
 
-Edit `resources/k8s/overlays/${CLUSTER_NAME}/kustomization.yaml` and update the cluster name on [line 12](https://github.com/atomisthq/adm-ctrl/blob/custzero/resources/templates/kustomization.yaml#L12).  Also change the `newTag` image attribute to be `latest`([line 15](https://github.com/atomisthq/adm-ctrl/blob/custzero/resources/templates/kustomization.yaml#L15))
+Edit `resources/k8s/overlays/${CLUSTER_NAME}/kustomization.yaml` and update the cluster name on [line 12](https://github.com/atomisthq/adm-ctrl/blob/main/resources/templates/kustomization.yaml#L12).  Also change the `newTag` image attribute to be `v0.0.2` ([line 15](https://github.com/atomisthq/adm-ctrl/blob/main/resources/templates/kustomization.yaml#L15))
 
 ```bash
 5. kubectl create configmap nginxconfigmap -n atomist --from-file=resources/nginx/nginx.conf
