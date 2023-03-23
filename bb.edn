@@ -40,9 +40,6 @@
                                    (seq (fs/modified-since "target/app.jar" (fs/glob "." "jib.edn"))))
                               (clojure "-Tjib" "build" ":tag" version))}
 
-         build-pkcs-create-iamge {:task (shell "docker build -t atomist/pkcs-create -f docker/Dockerfile .")}
-         push-pkcs-create-iamge {:task (shell {:env {"DOCKER_CONFIG" ".docker"}} "docker push atomist/pkcs-create")}
-
          -k8-edit {:depends [build-image]
                    :task (shell {:dir "resources/k8s/controller"} (format "kustomize edit set image atomist/adm-ctrl:%s" version))}
          -k8-edit-for-release {:depends [next-version]
