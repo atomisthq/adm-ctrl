@@ -27,7 +27,7 @@ COPY --from=build /build/app.jar .
 
 CMD ["java", "-jar", "app.jar"]
 
-FROM alpine:3.17@sha256:ff6bdca1701f3a8a67e328815ff2346b0e4067d32ec36b7992c1fdc001dc8517
+FROM alpine:3.17@sha256:f71a5f071694a785e064f05fed657bf8277f1b2113a8ed70c90ad486d6ee54dc
 COPY --from=native /native-build/adm-ctrl /
 ENTRYPOINT ["/adm-ctrl"]
 
